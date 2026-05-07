@@ -187,7 +187,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       case AdminNavTab.dashboard:
         return const HomeAdmin(); // The dashboard UI we built
       case AdminNavTab.pos:
-        return const POSScreen(); // The POS UI we built
+        return const UpgradedPOS(); // The POS UI we built
       case AdminNavTab.kitchen:
         return const KitchenScreen(); // The KDS UI we built
       case AdminNavTab.menuManager:

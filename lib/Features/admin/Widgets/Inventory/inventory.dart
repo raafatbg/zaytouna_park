@@ -108,13 +108,17 @@ enum StockStatus { ok, low, critical, outOfStock }
 class InventoryItem {
   final int id;
   final String name;
+  final int categoryId;
   final String category;
   final String sku;
+  final String? barcode;
+  final int supplierId;
   final String supplier;
   final String unit;
-  int stock;
-  final int minStock;
-  final int maxStock;
+  double stock;
+  final double minStock;
+  final double reorderQty;
+  final double maxStock;
   final double costPrice;
   final double sellPrice;
   final Color color;
@@ -123,12 +127,16 @@ class InventoryItem {
   InventoryItem({
     required this.id,
     required this.name,
+    required this.categoryId,
     required this.category,
     required this.sku,
+    this.barcode,
+    required this.supplierId,
     required this.supplier,
     required this.unit,
     required this.stock,
     required this.minStock,
+    required this.reorderQty,
     required this.maxStock,
     required this.costPrice,
     required this.sellPrice,
@@ -138,7 +146,7 @@ class InventoryItem {
 
   StockStatus get status {
     if (stock <= 0) return StockStatus.outOfStock;
-    if (stock <= minStock ~/ 2) return StockStatus.critical;
+    if (stock <= minStock / 2) return StockStatus.critical;
     if (stock <= minStock) return StockStatus.low;
     return StockStatus.ok;
   }
@@ -147,17 +155,25 @@ class InventoryItem {
       sellPrice > 0 ? ((sellPrice - costPrice) / sellPrice) * 100 : 0.0;
   double get stockValue => stock * costPrice;
 
+  // Helper to neatly format numbers (e.g., 10 instead of 10.0 for whole numbers)
+  String get formattedStock => stock == stock.truncateToDouble()
+      ? stock.toInt().toString()
+      : stock.toStringAsFixed(2);
+
   factory InventoryItem.fromSupabaseRow({
     required Map<String, dynamic> row,
     required String categoryName,
     required String supplierName,
   }) {
-    final stock = (row['current_quantity'] as num?)?.toInt() ?? 0;
-    final minStock = (row['reorder_level'] as num?)?.toInt() ?? 5;
-    final reorderQty = (row['reorder_quantity'] as num?)?.toInt() ?? 20;
-    final maxStock = stock > reorderQty ? stock + 10 : reorderQty;
-    final costPrice = (row['cost_per_unit'] as num?)?.toDouble() ?? 0.0;
-    final sellPrice = costPrice > 0 ? costPrice * 1.5 : 0.0;
+    final stockVal = (row['current_quantity'] as num?)?.toDouble() ?? 0.0;
+    final minStockVal = (row['reorder_level'] as num?)?.toDouble() ?? 5.0;
+    final reorderQtyVal = (row['reorder_quantity'] as num?)?.toDouble() ?? 20.0;
+    final maxStockVal = stockVal > reorderQtyVal
+        ? stockVal + 10.0
+        : reorderQtyVal;
+
+    final costPriceVal = (row['cost_per_unit'] as num?)?.toDouble() ?? 0.0;
+    final sellPriceVal = (row['selling_price'] as num?)?.toDouble() ?? 0.0;
 
     final categoryColors = {
       'Oils': InventoryColors.blue,
@@ -192,15 +208,19 @@ class InventoryItem {
     return InventoryItem(
       id: int.tryParse(row['id']?.toString() ?? '') ?? 0,
       name: row['name'] ?? 'Unknown',
+      categoryId: int.tryParse(row['category_id']?.toString() ?? '') ?? 0,
       category: categoryName,
       sku: 'INV-${row['id'] ?? 'N/A'}',
+      barcode: row['barcode']?.toString(),
+      supplierId: int.tryParse(row['supplier_id']?.toString() ?? '') ?? 0,
       supplier: supplierName,
       unit: row['unit'] ?? 'pcs',
-      stock: stock,
-      minStock: minStock,
-      maxStock: maxStock,
-      costPrice: costPrice,
-      sellPrice: sellPrice,
+      stock: stockVal,
+      minStock: minStockVal,
+      reorderQty: reorderQtyVal,
+      maxStock: maxStockVal,
+      costPrice: costPriceVal,
+      sellPrice: sellPriceVal,
       color: categoryColors[categoryName] ?? InventoryColors.blue,
       icon: categoryIcons[categoryName] ?? Icons.inventory_2_rounded,
     );
@@ -349,10 +369,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
       final suppliersData = await _supabase
           .from('suppliers')
           .select('id, name');
+
+      // Updated query to match new schema
       final inventoryRows = await _supabase
           .from('inventory_items')
           .select(
-            'id, name, unit, current_quantity, reorder_level, reorder_quantity, cost_per_unit, category_id, supplier_id',
+            'id, name, unit, current_quantity, reorder_level, reorder_quantity, cost_per_unit, selling_price, barcode, category_id, supplier_id',
           );
 
       _categories = List<Map<String, dynamic>>.from(categoriesData);
@@ -423,7 +445,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
             (i) =>
                 i.name.toLowerCase().contains(q) ||
                 i.sku.toLowerCase().contains(q) ||
-                i.category.toLowerCase().contains(q),
+                i.category.toLowerCase().contains(q) ||
+                (i.barcode != null && i.barcode!.toLowerCase().contains(q)),
           )
           .toList();
     }
@@ -624,8 +647,26 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
+  void _showEditDialog(InventoryItem item) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _EditItemDialog(
+        item: item,
+        categories: _categories,
+        suppliers: _suppliers,
+        onSuccess: () {
+          _showToast('Item updated successfully!', InventoryColors.green);
+          _loadInventory();
+        },
+        onError: (error) =>
+            _showToast('Failed to update item: $error', InventoryColors.red),
+      ),
+    );
+  }
+
   void _showRestockDialog(InventoryItem item) {
-    int qty = 10;
+    double qty = 1.0;
     showDialog(
       context: context,
       builder: (_) => StatefulBuilder(
@@ -659,7 +700,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     style: InventoryFonts.sans(12.sp, color: textMuted),
                   ),
                   Text(
-                    '${item.stock} ${item.unit}',
+                    '${item.formattedStock} ${item.unit}',
                     style: InventoryFonts.mono(
                       13.sp,
                       color: _statusColor(item.status),
@@ -681,7 +722,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   }),
                   SizedBox(width: 16.w),
                   Text(
-                    '$qty',
+                    qty.toStringAsFixed(0),
                     style: InventoryFonts.display(
                       24.sp,
                       w: FontWeight.w800,
@@ -756,35 +797,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     ),
   );
 
-  void _showEditDialog(InventoryItem item) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16.r),
-        ),
-        title: Text(
-          'Edit Item',
-          style: InventoryFonts.display(16.sp, w: FontWeight.w800),
-        ),
-        content: Text(
-          '${item.name}\nEdit functionality coming soon',
-          style: InventoryFonts.sans(12.sp, color: textMuted),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Close',
-              style: InventoryFonts.sans(12.sp, color: textMuted),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showToast(String msg, Color color) {
     HapticFeedback.lightImpact();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -800,12 +812,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
           children: [
             Icon(Icons.check_circle_rounded, color: Colors.white, size: 18.sp),
             SizedBox(width: 10.w),
-            Text(
-              msg,
-              style: InventoryFonts.sans(
-                13.sp,
-                w: FontWeight.w600,
-                color: Colors.white,
+            Flexible(
+              child: Text(
+                msg,
+                style: InventoryFonts.sans(
+                  13.sp,
+                  w: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -1300,7 +1314,7 @@ class _TableHeader extends StatelessWidget {
         children: [
           SizedBox(width: widths.icon.w),
           _HeaderCell(widths.name, 'Item'),
-          _HeaderCell(widths.sku, 'SKU'),
+          _HeaderCell(widths.sku, 'SKU / Barcode'),
           _HeaderCell(widths.category, 'Category'),
           _HeaderCell(widths.supplier, 'Supplier'),
           _HeaderCell(widths.stock, 'Stock'),
@@ -1421,21 +1435,37 @@ class _TableRow extends StatelessWidget {
           ),
           SizedBox(
             width: widths.category.w,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-              decoration: BoxDecoration(
-                color: item.color.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(6.r),
-              ),
-              child: Text(
-                item.category,
-                overflow: TextOverflow.ellipsis,
-                style: InventoryFonts.mono(
-                  9.5.sp,
-                  color: item.color,
-                  w: FontWeight.w500,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: item.color.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(6.r),
+                  ),
+                  child: Text(
+                    item.category,
+                    overflow: TextOverflow.ellipsis,
+                    style: InventoryFonts.mono(
+                      9.5.sp,
+                      color: item.color,
+                      w: FontWeight.w500,
+                    ),
+                  ),
                 ),
-              ),
+                if (item.barcode != null && item.barcode!.isNotEmpty) ...[
+                  SizedBox(height: 4.h),
+                  Text(
+                    item.barcode!,
+                    style: InventoryFonts.mono(
+                      8.sp,
+                      color: InventoryColors.textMuted,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           SizedBox(
@@ -1457,7 +1487,7 @@ class _TableRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  '${item.stock} ${item.unit}',
+                  '${item.formattedStock} ${item.unit}',
                   style: InventoryFonts.mono(
                     11.sp,
                     w: FontWeight.w600,
@@ -1634,9 +1664,11 @@ class _AddItemDialogState extends State<_AddItemDialog> {
 
   // Controllers
   final _nameCtrl = TextEditingController();
+  final _barcodeCtrl = TextEditingController();
   final _unitCtrl = TextEditingController(text: 'pcs');
   final _stockCtrl = TextEditingController(text: '0');
   final _costCtrl = TextEditingController(text: '0.00');
+  final _sellCtrl = TextEditingController(text: '0.00');
   final _reorderLevelCtrl = TextEditingController(text: '5');
   final _reorderQtyCtrl = TextEditingController(text: '20');
 
@@ -1647,9 +1679,11 @@ class _AddItemDialogState extends State<_AddItemDialog> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _barcodeCtrl.dispose();
     _unitCtrl.dispose();
     _stockCtrl.dispose();
     _costCtrl.dispose();
+    _sellCtrl.dispose();
     _reorderLevelCtrl.dispose();
     _reorderQtyCtrl.dispose();
     super.dispose();
@@ -1665,16 +1699,19 @@ class _AddItemDialogState extends State<_AddItemDialog> {
     setState(() => _isSubmitting = true);
 
     try {
-      // Map form values to your inventory_items schema
       final newItemData = {
         'name': _nameCtrl.text.trim(),
+        'barcode': _barcodeCtrl.text.trim().isEmpty
+            ? null
+            : _barcodeCtrl.text.trim(),
         'category_id': _selectedCategoryId,
         'supplier_id': _selectedSupplierId,
         'unit': _unitCtrl.text.trim(),
-        'current_quantity': int.parse(_stockCtrl.text),
+        'current_quantity': double.parse(_stockCtrl.text),
         'cost_per_unit': double.parse(_costCtrl.text),
-        'reorder_level': int.parse(_reorderLevelCtrl.text),
-        'reorder_quantity': int.parse(_reorderQtyCtrl.text),
+        'selling_price': double.parse(_sellCtrl.text),
+        'reorder_level': double.parse(_reorderLevelCtrl.text),
+        'reorder_quantity': double.parse(_reorderQtyCtrl.text),
       };
 
       await _supabase.from('inventory_items').insert(newItemData);
@@ -1700,7 +1737,7 @@ class _AddItemDialogState extends State<_AddItemDialog> {
         style: InventoryFonts.display(18.sp, w: FontWeight.w800),
       ),
       content: SizedBox(
-        width: 500.w, // Wide enough for tablet/desktop
+        width: 600.w, // Wide enough for tablet/desktop
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -1709,11 +1746,36 @@ class _AddItemDialogState extends State<_AddItemDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildLabel('Item Name'),
-                _buildTextField(
-                  ctrl: _nameCtrl,
-                  hint: 'e.g., Premium Olive Oil',
-                  validator: (v) => v!.isEmpty ? 'Required' : null,
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Item Name'),
+                          _buildTextField(
+                            ctrl: _nameCtrl,
+                            hint: 'e.g., Premium Olive Oil',
+                            validator: (v) => v!.isEmpty ? 'Required' : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Barcode (Optional)'),
+                          _buildTextField(
+                            ctrl: _barcodeCtrl,
+                            hint: 'Scan or type',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: 16.h),
 
@@ -1772,9 +1834,23 @@ class _AddItemDialogState extends State<_AddItemDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildLabel('Cost per Unit (\$)'),
+                          _buildLabel('Cost Price (\$)'),
                           _buildTextField(
                             ctrl: _costCtrl,
+                            hint: '0.00',
+                            isNumber: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Selling Price (\$)'),
+                          _buildTextField(
+                            ctrl: _sellCtrl,
                             hint: '0.00',
                             isNumber: true,
                           ),
@@ -1869,6 +1945,439 @@ class _AddItemDialogState extends State<_AddItemDialog> {
                 )
               : Text(
                   'Add Item',
+                  style: InventoryFonts.sans(
+                    13.sp,
+                    w: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 6.h, left: 2.w),
+      child: Text(
+        text,
+        style: InventoryFonts.sans(
+          11.sp,
+          w: FontWeight.w600,
+          color: InventoryColors.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController ctrl,
+    required String hint,
+    bool isNumber = false,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: ctrl,
+      keyboardType: isNumber
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
+      inputFormatters: isNumber
+          ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
+          : [],
+      style: InventoryFonts.sans(13.sp),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: InventoryFonts.sans(13.sp, color: InventoryColors.textDim),
+        filled: true,
+        fillColor: InventoryColors.surface2,
+        contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.r),
+          borderSide: BorderSide.none,
+        ),
+        errorStyle: InventoryFonts.sans(10.sp, color: InventoryColors.red),
+      ),
+      validator:
+          validator ?? (isNumber ? (v) => v!.isEmpty ? 'Req' : null : null),
+    );
+  }
+
+  Widget _buildDropdown({
+    required int? value,
+    required List<Map<String, dynamic>> items,
+    required String hint,
+    required void Function(dynamic) onChanged,
+  }) {
+    return DropdownButtonFormField<int>(
+      value: value,
+      dropdownColor: InventoryColors.surface,
+      style: InventoryFonts.sans(13.sp, color: InventoryColors.text),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: InventoryColors.surface2,
+        contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.r),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      hint: Text(
+        hint,
+        style: InventoryFonts.sans(13.sp, color: InventoryColors.textDim),
+      ),
+      items: items.map((item) {
+        return DropdownMenuItem<int>(
+          value: item['id'] as int,
+          child: Text(item['name'].toString()),
+        );
+      }).toList(),
+      onChanged: onChanged,
+      validator: (v) => v == null ? 'Required' : null,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  EDIT ITEM FORM DIALOG
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EditItemDialog extends StatefulWidget {
+  final InventoryItem item;
+  final List<Map<String, dynamic>> categories;
+  final List<Map<String, dynamic>> suppliers;
+  final VoidCallback onSuccess;
+  final Function(String) onError;
+
+  const _EditItemDialog({
+    required this.item,
+    required this.categories,
+    required this.suppliers,
+    required this.onSuccess,
+    required this.onError,
+  });
+
+  @override
+  State<_EditItemDialog> createState() => _EditItemDialogState();
+}
+
+class _EditItemDialogState extends State<_EditItemDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _supabase = Supabase.instance.client;
+
+  bool _isSubmitting = false;
+
+  late TextEditingController _nameCtrl;
+  late TextEditingController _barcodeCtrl;
+  late TextEditingController _unitCtrl;
+  late TextEditingController _stockCtrl;
+  late TextEditingController _costCtrl;
+  late TextEditingController _sellCtrl;
+  late TextEditingController _reorderLevelCtrl;
+  late TextEditingController _reorderQtyCtrl;
+
+  int? _selectedCategoryId;
+  int? _selectedSupplierId;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.item.name);
+    _barcodeCtrl = TextEditingController(text: widget.item.barcode ?? '');
+    _unitCtrl = TextEditingController(text: widget.item.unit);
+    _stockCtrl = TextEditingController(text: widget.item.formattedStock);
+    _costCtrl = TextEditingController(
+      text: widget.item.costPrice.toStringAsFixed(2),
+    );
+    _sellCtrl = TextEditingController(
+      text: widget.item.sellPrice.toStringAsFixed(2),
+    );
+    _reorderLevelCtrl = TextEditingController(
+      text: widget.item.minStock.toStringAsFixed(0),
+    );
+    _reorderQtyCtrl = TextEditingController(
+      text: widget.item.reorderQty.toStringAsFixed(0),
+    );
+
+    _selectedCategoryId = widget.item.categoryId != 0
+        ? widget.item.categoryId
+        : null;
+    _selectedSupplierId = widget.item.supplierId != 0
+        ? widget.item.supplierId
+        : null;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _barcodeCtrl.dispose();
+    _unitCtrl.dispose();
+    _stockCtrl.dispose();
+    _costCtrl.dispose();
+    _sellCtrl.dispose();
+    _reorderLevelCtrl.dispose();
+    _reorderQtyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedCategoryId == null) {
+      widget.onError('Please select a category');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final updatedItemData = {
+        'name': _nameCtrl.text.trim(),
+        'barcode': _barcodeCtrl.text.trim().isEmpty
+            ? null
+            : _barcodeCtrl.text.trim(),
+        'category_id': _selectedCategoryId,
+        'supplier_id': _selectedSupplierId,
+        'unit': _unitCtrl.text.trim(),
+        'current_quantity': double.parse(_stockCtrl.text),
+        'cost_per_unit': double.parse(_costCtrl.text),
+        'selling_price': double.parse(_sellCtrl.text),
+        'reorder_level': double.parse(_reorderLevelCtrl.text),
+        'reorder_quantity': double.parse(_reorderQtyCtrl.text),
+      };
+
+      await _supabase
+          .from('inventory_items')
+          .update(updatedItemData)
+          .eq('id', widget.item.id);
+
+      if (mounted) {
+        Navigator.pop(context); // Close dialog
+        widget.onSuccess();
+      }
+    } catch (e) {
+      setState(() => _isSubmitting = false);
+      widget.onError(e.toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: InventoryColors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+      title: Text(
+        'Edit Item',
+        style: InventoryFonts.display(18.sp, w: FontWeight.w800),
+      ),
+      content: SizedBox(
+        width: 600.w, // Wide enough for tablet/desktop
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Item Name'),
+                          _buildTextField(
+                            ctrl: _nameCtrl,
+                            hint: 'e.g., Premium Olive Oil',
+                            validator: (v) => v!.isEmpty ? 'Required' : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Barcode (Optional)'),
+                          _buildTextField(
+                            ctrl: _barcodeCtrl,
+                            hint: 'Scan or type',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16.h),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Category'),
+                          _buildDropdown(
+                            value: _selectedCategoryId,
+                            items: widget.categories,
+                            hint: 'Select Category',
+                            onChanged: (val) => setState(
+                              () => _selectedCategoryId = val as int?,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Supplier'),
+                          _buildDropdown(
+                            value: _selectedSupplierId,
+                            items: widget.suppliers,
+                            hint: 'Select Supplier',
+                            onChanged: (val) => setState(
+                              () => _selectedSupplierId = val as int?,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16.h),
+
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Unit (e.g., pcs, kg, L)'),
+                          _buildTextField(ctrl: _unitCtrl, hint: 'pcs'),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Cost Price (\$)'),
+                          _buildTextField(
+                            ctrl: _costCtrl,
+                            hint: '0.00',
+                            isNumber: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Selling Price (\$)'),
+                          _buildTextField(
+                            ctrl: _sellCtrl,
+                            hint: '0.00',
+                            isNumber: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16.h),
+
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Current Stock'),
+                          _buildTextField(
+                            ctrl: _stockCtrl,
+                            hint: '0',
+                            isNumber: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Low Alert At'),
+                          _buildTextField(
+                            ctrl: _reorderLevelCtrl,
+                            hint: '5',
+                            isNumber: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel('Restock Qty'),
+                          _buildTextField(
+                            ctrl: _reorderQtyCtrl,
+                            hint: '20',
+                            isNumber: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actionsPadding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 24.h),
+      actions: [
+        TextButton(
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+          child: Text(
+            'Cancel',
+            style: InventoryFonts.sans(
+              13.sp,
+              color: InventoryColors.textSecondary,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: InventoryColors.blue,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+            elevation: 0,
+          ),
+          onPressed: _isSubmitting ? null : _submitForm,
+          child: _isSubmitting
+              ? SizedBox(
+                  width: 18.w,
+                  height: 18.w,
+                  child: const CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+              : Text(
+                  'Save Changes',
                   style: InventoryFonts.sans(
                     13.sp,
                     w: FontWeight.w600,

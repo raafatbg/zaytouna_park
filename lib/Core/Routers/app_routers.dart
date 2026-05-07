@@ -18,9 +18,9 @@ import 'package:zaytouna_park/Features/cashier/Shell/appshell.dart';
 
 // --- FEATURE SCREENS ---
 import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Inventory/inventory.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Categories/categories.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Suppliers/suppliers.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
@@ -114,7 +114,7 @@ class AppRouter {
 
       // ─── POS & KIOSK ───────────────────────────────────────────────────────
       case Routes.pos:
-        return _scale(const POSScreen(), settings);
+        return _scale(const UpgradedPOS(), settings);
 
       // ─── VENUE MANAGEMENT ──────────────────────────────────────────────────
       case Routes.bookings:

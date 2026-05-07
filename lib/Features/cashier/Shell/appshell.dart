@@ -10,19 +10,20 @@ import 'package:google_fonts/google_fonts.dart';
 // Core Imports
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Facilities/facilities.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
 
 // Feature Screens
 import 'package:zaytouna_park/Features/cashier/cash_home.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Inventory/inventory.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Categories/categories.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Suppliers/suppliers.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Dashboard/analatics.dart';
 import 'package:zaytouna_park/Features/kitchen/widgets/menu%20mangement/menumanagementscreen.dart';
-import 'package:zaytouna_park/Features/shared/placeholder_screen.dart';
 
 // ADDED: Import your Menu Management Screen here (adjust path if needed)
 
@@ -44,6 +45,7 @@ class ShellColors {
 }
 
 enum NavTab {
+  facilities,
   dashboard,
   pos,
   sales,
@@ -112,6 +114,11 @@ const navItems = [
     tab: NavTab.analytics,
     icon: Icons.insights_rounded,
     label: 'Analytics',
+  ),
+   NavMeta(
+    tab: NavTab.facilities,
+    icon: Icons.apartment_rounded,
+    label: 'Facilities',
   ),
   NavMeta(
     tab: NavTab.settings,
@@ -215,7 +222,7 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
           onLaunchTerminal: () => Navigator.pushNamed(context, Routes.pos),
         );
       case NavTab.pos:
-        return const POSScreen();
+        return const UpgradedPOS();
       case NavTab.sales:
         return const SalesScreen();
       case NavTab.menu: // <--- ADDED SWITCH CASE
@@ -232,11 +239,10 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
         return const ExpensesScreen();
       case NavTab.analytics:
         return const AnalyticsScreen();
+      case NavTab.facilities:
+        return const FacilitiesScreen();
       case NavTab.settings:
-        return const PlaceholderScreen(
-          title: 'System Settings',
-          icon: Icons.settings,
-        );
+        return const SettingsScreen();
     }
   }
 
