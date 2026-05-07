@@ -7,14 +7,13 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:zaytouna_park/Core/Models/app_routers.dart';
 
 import 'package:zaytouna_park/zaytouna_park.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(ZaytounaPark(appRouter: AppRouter()));
+    await tester.pumpWidget(ZaytounaPark());
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);

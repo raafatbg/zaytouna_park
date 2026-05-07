@@ -1,41 +1,362 @@
-// lib/Core/Routing/app_router.dart
-// ignore_for_file: file_names
-
+// ignore_for_file: file_names, unnecessary_underscores
 import 'package:flutter/material.dart';
-import 'package:zaytouna_park/Core/Models/routes.dart';
-import 'package:zaytouna_park/Features/Home/Shell/appshell.dart';
-import 'package:zaytouna_park/Features/Home/Widgets/Terminal/terminalscreen.dart';
-import 'package:zaytouna_park/Features/Login/loginScreen.dart';
+
+// --- CORE ---
+import 'package:zaytouna_park/Core/Routers/routes.dart';
+import 'package:zaytouna_park/Core/Routers/route_guard.dart';
+
+// --- AUTHENTICATION ---
+import 'package:zaytouna_park/Features/Auth/pages/Login/staff_login_page.dart';
+
+// --- ADMIN SHELL ---
+import 'package:zaytouna_park/Features/admin/admin_shell/admin_shell.dart';
+
+// --- DASHBOARDS ---
+import 'package:zaytouna_park/Features/kitchen/home_kitchen.dart';
+import 'package:zaytouna_park/Features/cashier/cash_home.dart';
+import 'package:zaytouna_park/Features/cashier/Shell/appshell.dart';
+
+// --- FEATURE SCREENS ---
+import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Inventory/inventory.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Categories/categories.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Suppliers/suppliers.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Dashboard/analatics.dart';
+import 'package:zaytouna_park/Features/shared/placeholder_screen.dart';
 
 class AppRouter {
-  Route generateRoute(RouteSettings settings) {
-    switch (settings.name) {
-      case Routes.login:
-        return _fade(const LoginScreen());
-      case Routes.shell:
-        return _fade(const ShellScreen());
-      case Routes.terminal:
-        return _fade(POSScreen());
-      default:
-        return _errorRoute(settings.name);
+  static final AppRouter _instance = AppRouter._internal();
+  factory AppRouter() => _instance;
+  AppRouter._internal();
+
+  Route<dynamic> generateRoute(RouteSettings settings) {
+    final routeName = settings.name;
+    final arguments = settings.arguments;
+
+    // WEB BUG FIX:
+    // Flutter Web always pushes '/' first before the initialRoute.
+    // We must return a zero-animation blank page for '/' to prevent
+    // transition collisions that crash the Chrome Proxy Service.
+    if (routeName == '/' || routeName == '') {
+      return PageRouteBuilder(
+        settings: settings,
+        pageBuilder: (_, __, ___) =>
+            const Scaffold(backgroundColor: Colors.white),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+      );
+    }
+
+    debugPrint('🚀 Navigation to: $routeName');
+    debugPrint('🔐 Is Authenticated: ${RouteGuard.isAuthenticated}');
+
+    if (RouteGuard.isAuthenticated) {
+      debugPrint(
+        '👤 Current User: ${RouteGuard.user?.fullName} (${RouteGuard.user?.role})',
+      );
+    }
+
+    // 1. Special handling for login route
+    if (routeName == Routes.login) {
+      if (RouteGuard.isAuthenticated) {
+        debugPrint('↪️ Already logged in, redirecting to dashboard');
+        return _redirectToDashboard();
+      }
+      return _fade(const LoginScreen(), settings);
+    }
+
+    // 2. Protect all other routes
+    if (!RouteGuard.isAuthenticated) {
+      debugPrint('⛔ Not authenticated, redirecting to login');
+      return _redirectToLogin();
+    }
+
+    // 3. Handle authenticated routes
+    try {
+      return _handleRoute(routeName, arguments, settings);
+    } catch (e) {
+      debugPrint('❌ Navigation error: $e');
+      return _errorRoute('Navigation error: $e', settings);
     }
   }
 
-  static PageRouteBuilder _fade(Widget page) => PageRouteBuilder(
-    pageBuilder: (_, _, _) => page,
-    transitionsBuilder: (_, anim, _, child) =>
-        FadeTransition(opacity: anim, child: child),
-    transitionDuration: const Duration(milliseconds: 260),
-  );
+  Route<dynamic> _handleRoute(
+    String? routeName,
+    Object? arguments,
+    RouteSettings settings,
+  ) {
+    switch (routeName) {
+      // ─── DASHBOARDS ────────────────────────────────────────────────────────
+      case Routes.adminDashboard:
+        // FIX: Removed "const" here
+        return _fade(AdminShellScreen(), settings);
 
-  static Route _errorRoute(String? name) => MaterialPageRoute(
-    builder: (_) => Scaffold(
-      body: Center(
-        child: Text(
-          'No route: $name',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+      case Routes.cashierDashboard:
+      case Routes.shell:
+        return _fade(CashierShellScreen(), settings);
+
+      case Routes.kitchenDashboard:
+        return _fade(const KitchenScreen(), settings);
+
+      case Routes.home:
+        return _fade(
+          Builder(
+            builder: (context) => PremiumCashierHome(
+              onLaunchTerminal: () =>
+                  Navigator.of(context).pushNamed(Routes.pos),
+            ),
+          ),
+          settings,
+        );
+
+      // ─── POS & KIOSK ───────────────────────────────────────────────────────
+      case Routes.pos:
+        return _scale(const POSScreen(), settings);
+
+      // ─── VENUE MANAGEMENT ──────────────────────────────────────────────────
+      case Routes.bookings:
+        return _slideRight(
+          const PlaceholderScreen(
+            title: 'Sports Bookings',
+            message: 'Manage Football and Padel court schedules.',
+            icon: Icons.sports_soccer_rounded,
+          ),
+          settings,
+        );
+
+      case Routes.playground:
+        return _slideRight(
+          const PlaceholderScreen(
+            title: 'Playground',
+            message: 'Entry passes and Kids Zone management.',
+            icon: Icons.child_care_rounded,
+          ),
+          settings,
+        );
+
+      case Routes.tables:
+        return _slideRight(
+          const PlaceholderScreen(
+            title: 'Floor Plan',
+            message: 'Restaurant table status and Matte refills.',
+            icon: Icons.table_bar_rounded,
+          ),
+          settings,
+        );
+
+      // ─── INVENTORY & BACK OFFICE ───────────────────────────────────────────
+      case Routes.inventory:
+        return _slideRight(const InventoryScreen(), settings);
+
+      case Routes.categories:
+        return _slideRight(const CategoryScreen(), settings);
+
+      case Routes.suppliers:
+        return _slideRight(const SuppliersScreen(), settings);
+
+      // ─── SALES & FINANCE ───────────────────────────────────────────────────
+      case Routes.orders:
+        return _slideRight(const SalesScreen(), settings);
+
+      case Routes.customers:
+        return _slideRight(const CustomersScreen(), settings);
+
+      case Routes.expenses:
+        return _slideRight(const ExpensesScreen(), settings);
+
+      case Routes.reports:
+      case Routes.salesReport:
+        return _slideRight(const AnalyticsScreen(), settings);
+
+      case Routes.deletedOrders:
+        return _slideRight(
+          const PlaceholderScreen(
+            title: 'Deleted Orders',
+            message: 'View and restore deleted orders.',
+            icon: Icons.delete_sweep_rounded,
+          ),
+          settings,
+        );
+
+      // ─── SYSTEM ────────────────────────────────────────────────────────────
+      case Routes.settings:
+        return _slideRight(
+          const PlaceholderScreen(
+            title: 'Settings',
+            icon: Icons.settings_suggest_rounded,
+          ),
+          settings,
+        );
+
+      case Routes.profile:
+        return _slideRight(
+          const PlaceholderScreen(
+            title: 'Staff Profile',
+            icon: Icons.person_pin_rounded,
+          ),
+          settings,
+        );
+
+      case Routes.notFound:
+        return _errorRoute('Page not found', settings);
+
+      default:
+        return _errorRoute('Route $routeName not found', settings);
+    }
+  }
+
+  // ─── REDIRECT HELPERS ──────────────────────────────────────────────────────
+
+  Route<dynamic> _redirectToDashboard() {
+    final user = RouteGuard.user;
+
+    if (user == null) return _redirectToLogin();
+
+    Widget targetPage;
+    String targetRoute;
+
+    switch (user.role.toLowerCase()) {
+      case 'admin':
+        // FIX: Removed "const" here
+        targetPage = AdminShellScreen();
+        targetRoute = Routes.adminDashboard;
+        break;
+      case 'kitchen':
+      case 'chef':
+        targetPage = const KitchenScreen();
+        targetRoute = Routes.kitchenDashboard;
+        break;
+      case 'cashier':
+      default:
+        targetPage = const CashierShellScreen();
+        targetRoute = Routes.cashierDashboard;
+        break;
+    }
+
+    // Use zero-duration transitions for redirects to prevent animation overlap bugs
+    return PageRouteBuilder(
+      settings: RouteSettings(name: targetRoute),
+      pageBuilder: (_, __, ___) => targetPage,
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+    );
+  }
+
+  Route<dynamic> _redirectToLogin() {
+    return PageRouteBuilder(
+      settings: const RouteSettings(name: Routes.login),
+      pageBuilder: (_, __, ___) => const LoginScreen(),
+      transitionDuration: Duration.zero,
+      reverseTransitionDuration: Duration.zero,
+    );
+  }
+
+  Route<dynamic> _errorRoute(String message, RouteSettings settings) {
+    return MaterialPageRoute(
+      settings: settings,
+      builder: (context) => Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).pushNamedAndRemoveUntil(Routes.login, (route) => false),
+                  child: const Text('Go to Login'),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
+
+  // ─── ANIMATIONS ────────────────────────────────────────────────────────────
+
+  PageRouteBuilder _fade(Widget page, RouteSettings settings) =>
+      PageRouteBuilder(
+        settings: settings,
+        pageBuilder: (_, __, ___) => page,
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
+        transitionDuration: const Duration(milliseconds: 300),
+      );
+
+  PageRouteBuilder _slideRight(Widget page, RouteSettings settings) =>
+      PageRouteBuilder(
+        settings: settings,
+        pageBuilder: (_, __, ___) => page,
+        transitionsBuilder: (_, anim, __, child) {
+          final offset = anim.drive(
+            Tween(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).chain(CurveTween(curve: Curves.easeOutCubic)),
+          );
+          return SlideTransition(position: offset, child: child);
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      );
+
+  PageRouteBuilder _scale(Widget page, RouteSettings settings) =>
+      PageRouteBuilder(
+        settings: settings,
+        pageBuilder: (_, __, ___) => page,
+        transitionsBuilder: (_, anim, __, child) {
+          final scale = anim.drive(
+            Tween(
+              begin: 0.9,
+              end: 1.0,
+            ).chain(CurveTween(curve: Curves.fastOutSlowIn)),
+          );
+          return ScaleTransition(
+            scale: scale,
+            child: FadeTransition(opacity: anim, child: child),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      );
+}
+
+// ─── NAVIGATION EXTENSION ────────────────────────────────────────────────────
+extension NavigationExtension on BuildContext {
+  void pushNamed(String routeName, {Object? arguments}) {
+    Navigator.pushNamed(this, routeName, arguments: arguments);
+  }
+
+  void pushReplacementNamed(String routeName, {Object? arguments}) {
+    Navigator.pushReplacementNamed(this, routeName, arguments: arguments);
+  }
+
+  void pushNamedAndRemoveUntil(String routeName, {Object? arguments}) {
+    Navigator.pushNamedAndRemoveUntil(
+      this,
+      routeName,
+      (route) => false,
+      arguments: arguments,
+    );
+  }
+
+  void popUntil(String routeName) {
+    Navigator.popUntil(this, ModalRoute.withName(routeName));
+  }
+
+  bool canPop() => Navigator.canPop(this);
+
+  void pop<T extends Object?>([T? result]) => Navigator.pop(this, result);
 }

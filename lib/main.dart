@@ -1,11 +1,22 @@
+// main.dart
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:zaytouna_park/Core/Models/app_routers.dart';
-import 'package:zaytouna_park/firebase_options.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 import 'package:zaytouna_park/zaytouna_park.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(ZaytounaPark(appRouter: AppRouter()));
+
+  // Initialize Supabase before the app starts
+  await Supabase.initialize(
+    url: 'https://qmxuvlftxgoqtkotrtkh.supabase.co',
+    anonKey: 'sb_publishable_RMcETbUFV93edmrW4P6VVQ_MRPUJbQE',
+  );
+
+  // Load saved user session before showing UI
+  await RouteGuard.initialize();
+
+  runApp(
+    const ZaytounaPark(),
+  ); // Removed appRouter parameter since it's not needed
 }
