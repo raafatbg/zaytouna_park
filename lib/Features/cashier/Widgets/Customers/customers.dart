@@ -1215,7 +1215,7 @@ class _SummaryCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  CUSTOMER TABLE
+//  CUSTOMER TABLE (OVERFLOW FIXED)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CustomerTable extends StatelessWidget {
@@ -1245,17 +1245,20 @@ class _CustomerTable extends StatelessWidget {
     'Transactions',
     '',
   ];
-  static const _widths = [
-    70.0,
-    200.0,
-    200.0,
-    110.0,
-    110.0,
-    110.0,
-    100.0,
-    120.0,
+
+  // FIXED WIDTHS TO SCALE PROPERLY WITH SCREENUTIL
+  List<double> get _widths => [
+    70.w,
+    220.w, // Name/Avatar
+    180.w, // Contact
+    110.w, // Purchases
+    110.w, // Payments
+    110.w, // Balance
+    100.w, // Transactions
+    140.w, // Action Buttons
   ];
-  double get _tableWidth => _widths.fold(0.0, (a, b) => a + b) + 32;
+
+  double get _tableWidth => _widths.fold(0.0, (a, b) => a + b) + 32.w;
 
   @override
   Widget build(BuildContext context) {
@@ -1272,77 +1275,81 @@ class _CustomerTable extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          // Header
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Container(
-              width: _tableWidth,
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-              decoration: BoxDecoration(
-                color: CustomerColors.surface2,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(14.r)),
-                border: Border(
-                  bottom: BorderSide(color: CustomerColors.border),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _tableWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: CustomerColors.surface2,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(14.r),
+                  ),
+                  border: Border(
+                    bottom: BorderSide(color: CustomerColors.border),
+                  ),
                 ),
-              ),
-              child: Row(
-                children: List.generate(
-                  _headers.length,
-                  (i) => SizedBox(
-                    width: _widths[i],
-                    child: Text(
-                      _headers[i],
-                      style: CustomerFonts.sans(
-                        9.sp,
-                        w: FontWeight.w600,
-                        color: CustomerColors.textDim,
+                child: Row(
+                  children: List.generate(
+                    _headers.length,
+                    (i) => SizedBox(
+                      width: _widths[i],
+                      child: Text(
+                        _headers[i],
+                        style: CustomerFonts.sans(
+                          9.sp,
+                          w: FontWeight.w600,
+                          color: CustomerColors.textDim,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
-          // Rows
-          if (customers.isEmpty)
-            Padding(
-              padding: EdgeInsets.all(48.w),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.people_outline_rounded,
-                      size: 48.sp,
-                      color: CustomerColors.textDim,
+              // Rows
+              if (customers.isEmpty)
+                Padding(
+                  padding: EdgeInsets.all(48.w),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.people_outline_rounded,
+                          size: 48.sp,
+                          color: CustomerColors.textDim,
+                        ),
+                        SizedBox(height: 12.h),
+                        Text(
+                          'No customers found',
+                          style: CustomerFonts.sans(
+                            14.sp,
+                            color: CustomerColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
-                    SizedBox(height: 12.h),
-                    Text(
-                      'No customers found',
-                      style: CustomerFonts.sans(
-                        14.sp,
-                        color: CustomerColors.textSecondary,
-                      ),
-                    ),
-                  ],
+                  ),
+                )
+              else
+                ...customers.map(
+                  (c) => _TableRow(
+                    customer: c,
+                    isSelected: selected?.id == c.id,
+                    colWidths: _widths,
+                    onTap: () => onSelect(c),
+                    onEdit: () => onEdit(c),
+                    onDelete: () => onDelete(c),
+                    onLedger: () => onLedger(c),
+                  ),
                 ),
-              ),
-            )
-          else
-            ...customers.map(
-              (c) => _TableRow(
-                customer: c,
-                isSelected: selected?.id == c.id,
-                colWidths: _widths,
-                totalWidth: _tableWidth,
-                onTap: () => onSelect(c),
-                onEdit: () => onEdit(c),
-                onDelete: () => onDelete(c),
-                onLedger: () => onLedger(c),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1356,7 +1363,6 @@ class _TableRow extends StatefulWidget {
   final Customer customer;
   final bool isSelected;
   final List<double> colWidths;
-  final double totalWidth;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -1366,7 +1372,6 @@ class _TableRow extends StatefulWidget {
     required this.customer,
     required this.isSelected,
     required this.colWidths,
-    required this.totalWidth,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
@@ -1393,125 +1398,122 @@ class _TableRowState extends State<_TableRow> {
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Container(
-            width: widget.totalWidth,
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-            decoration: BoxDecoration(
-              color: widget.isSelected
-                  ? CustomerColors.blue.withOpacity(0.04)
-                  : (_hovered
-                        ? CustomerColors.surface2
-                        : CustomerColors.surface),
-              border: Border(
-                bottom: BorderSide(color: CustomerColors.border),
-                left: BorderSide(
-                  color: widget.isSelected
-                      ? CustomerColors.blue
-                      : Colors.transparent,
-                  width: 3,
-                ),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? CustomerColors.blue.withOpacity(0.04)
+                : (_hovered ? CustomerColors.surface2 : CustomerColors.surface),
+            border: Border(
+              bottom: BorderSide(color: CustomerColors.border),
+              left: BorderSide(
+                color: widget.isSelected
+                    ? CustomerColors.blue
+                    : Colors.transparent,
+                width: 3,
               ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(
-                  width: widget.colWidths[0],
-                  child: Text(
-                    c.id,
-                    style: CustomerFonts.mono(
-                      10.sp,
-                      color: CustomerColors.textSecondary,
-                    ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: widget.colWidths[0],
+                child: Text(
+                  c.id,
+                  style: CustomerFonts.mono(
+                    10.sp,
+                    color: CustomerColors.textSecondary,
                   ),
                 ),
-                SizedBox(
-                  width: widget.colWidths[1],
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 32.w,
-                        height: 32.w,
-                        decoration: BoxDecoration(
-                          color: c.color.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
-                        child: Center(
-                          child: Text(
-                            c.name[0].toUpperCase(),
-                            style: CustomerFonts.sans(
-                              12.sp,
-                              w: FontWeight.w700,
-                              color: c.color,
-                            ),
+              ),
+              SizedBox(
+                width: widget.colWidths[1],
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32.w,
+                      height: 32.w,
+                      decoration: BoxDecoration(
+                        color: c.color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: Center(
+                        child: Text(
+                          c.name.isNotEmpty ? c.name[0].toUpperCase() : 'U',
+                          style: CustomerFonts.sans(
+                            12.sp,
+                            w: FontWeight.w700,
+                            color: c.color,
                           ),
                         ),
                       ),
-                      SizedBox(width: 10.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              c.name,
-                              overflow: TextOverflow.ellipsis,
-                              style: CustomerFonts.sans(
-                                12.sp,
-                                w: FontWeight.w600,
-                              ),
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            c.name,
+                            overflow: TextOverflow.ellipsis,
+                            style: CustomerFonts.sans(
+                              12.sp,
+                              w: FontWeight.w600,
                             ),
-                            SizedBox(height: 2.h),
-                            Text(
-                              c.email,
-                              overflow: TextOverflow.ellipsis,
-                              style: CustomerFonts.sans(
-                                10.sp,
-                                color: CustomerColors.textSecondary,
-                              ),
+                          ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            c.email,
+                            overflow: TextOverflow.ellipsis,
+                            style: CustomerFonts.sans(
+                              10.sp,
+                              color: CustomerColors.textSecondary,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  width: widget.colWidths[2],
-                  child: Text(
-                    c.phone,
-                    style: CustomerFonts.mono(
-                      10.sp,
-                      color: CustomerColors.textSecondary,
                     ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: widget.colWidths[2],
+                child: Text(
+                  c.phone,
+                  style: CustomerFonts.mono(
+                    10.sp,
+                    color: CustomerColors.textSecondary,
                   ),
                 ),
-                SizedBox(
-                  width: widget.colWidths[3],
-                  child: Text(
-                    '\$${c.totalPurchases.toStringAsFixed(2)}',
-                    style: CustomerFonts.mono(
-                      11.sp,
-                      w: FontWeight.w600,
-                      color: CustomerColors.blue,
-                    ),
+              ),
+              SizedBox(
+                width: widget.colWidths[3],
+                child: Text(
+                  '\$${c.totalPurchases.toStringAsFixed(2)}',
+                  style: CustomerFonts.mono(
+                    11.sp,
+                    w: FontWeight.w600,
+                    color: CustomerColors.blue,
                   ),
                 ),
-                SizedBox(
-                  width: widget.colWidths[4],
-                  child: Text(
-                    '\$${c.totalPayments.toStringAsFixed(2)}',
-                    style: CustomerFonts.mono(
-                      11.sp,
-                      w: FontWeight.w600,
-                      color: CustomerColors.green,
-                    ),
+              ),
+              SizedBox(
+                width: widget.colWidths[4],
+                child: Text(
+                  '\$${c.totalPayments.toStringAsFixed(2)}',
+                  style: CustomerFonts.mono(
+                    11.sp,
+                    w: FontWeight.w600,
+                    color: CustomerColors.green,
                   ),
                 ),
-                SizedBox(
-                  width: widget.colWidths[5],
+              ),
+              SizedBox(
+                width: widget.colWidths[5],
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: Container(
                     padding: EdgeInsets.symmetric(
                       horizontal: 8.w,
@@ -1531,43 +1533,43 @@ class _TableRowState extends State<_TableRow> {
                     ),
                   ),
                 ),
-                SizedBox(
-                  width: widget.colWidths[6],
-                  child: Text(
-                    '${c.transactionCount} entries',
-                    style: CustomerFonts.sans(
-                      11.sp,
-                      color: CustomerColors.textSecondary,
+              ),
+              SizedBox(
+                width: widget.colWidths[6],
+                child: Text(
+                  '${c.transactionCount} entries',
+                  style: CustomerFonts.sans(
+                    11.sp,
+                    color: CustomerColors.textSecondary,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: widget.colWidths[7],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _ActionButton(
+                      icon: Icons.payments_outlined,
+                      color: CustomerColors.green,
+                      onTap: widget.onLedger,
                     ),
-                  ),
+                    SizedBox(width: 6.w),
+                    _ActionButton(
+                      icon: Icons.edit_outlined,
+                      color: CustomerColors.textSecondary,
+                      onTap: widget.onEdit,
+                    ),
+                    SizedBox(width: 6.w),
+                    _ActionButton(
+                      icon: Icons.delete_outline_rounded,
+                      color: CustomerColors.red,
+                      onTap: widget.onDelete,
+                    ),
+                  ],
                 ),
-                SizedBox(
-                  width: widget.colWidths[7],
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      _ActionButton(
-                        icon: Icons.payments_outlined,
-                        color: CustomerColors.green,
-                        onTap: widget.onLedger,
-                      ),
-                      SizedBox(width: 6.w),
-                      _ActionButton(
-                        icon: Icons.edit_outlined,
-                        color: CustomerColors.textSecondary,
-                        onTap: widget.onEdit,
-                      ),
-                      SizedBox(width: 6.w),
-                      _ActionButton(
-                        icon: Icons.delete_outline_rounded,
-                        color: CustomerColors.red,
-                        onTap: widget.onDelete,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1591,8 +1593,9 @@ class _ActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 32.w,
-        height: 32.w,
+        width: 32, // <--- FIXED: Absolute size prevents button scaling overflow
+        height:
+            32, // <--- FIXED: Absolute size prevents button scaling overflow
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(8.r),
@@ -1670,7 +1673,9 @@ class _DetailPanel extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      customer.name[0].toUpperCase(),
+                      customer.name.isNotEmpty
+                          ? customer.name[0].toUpperCase()
+                          : 'U',
                       style: CustomerFonts.display(
                         24.sp,
                         color: customer.color,
@@ -1806,7 +1811,7 @@ class _DetailPanel extends StatelessWidget {
                       child: ElevatedButton.icon(
                         onPressed: onLedger,
                         icon: Icon(Icons.add_rounded, size: 16.sp),
-                        label: Text('Add Transaction'),
+                        label: const Text('Transaction'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: CustomerColors.blue,
                           foregroundColor: Colors.white,
@@ -1821,10 +1826,8 @@ class _DetailPanel extends StatelessWidget {
                     SizedBox(width: 8.w),
                     IconButton(
                       onPressed: onEdit,
-                      icon: Icon(
-                        Icons.edit_outlined,
-                        color: CustomerColors.textSecondary,
-                      ),
+                      icon: const Icon(Icons.edit_outlined),
+                      color: CustomerColors.textSecondary,
                       style: IconButton.styleFrom(
                         backgroundColor: CustomerColors.surface2,
                         shape: RoundedRectangleBorder(
@@ -1834,7 +1837,7 @@ class _DetailPanel extends StatelessWidget {
                     ),
                     IconButton(
                       onPressed: onDelete,
-                      icon: Icon(
+                      icon: const Icon(
                         Icons.delete_outline_rounded,
                         color: CustomerColors.red,
                       ),
@@ -1969,7 +1972,7 @@ class _DetailSheet extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                customer.name[0].toUpperCase(),
+                customer.name.isNotEmpty ? customer.name[0].toUpperCase() : 'U',
                 style: CustomerFonts.display(24.sp, color: customer.color),
               ),
             ),
@@ -2021,7 +2024,11 @@ class _DetailSheet extends StatelessWidget {
                         style: CustomerFonts.mono(
                           14.sp,
                           w: FontWeight.w700,
-                          color: CustomerColors.orange,
+                          color: customer.balance == 0
+                              ? CustomerColors.green
+                              : (customer.balance < 0
+                                    ? CustomerColors.red
+                                    : CustomerColors.orange),
                         ),
                       ),
                       Text(
@@ -2044,27 +2051,39 @@ class _DetailSheet extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: onLedger,
                   icon: Icon(Icons.add_rounded, size: 16.sp),
-                  label: Text('Transaction'),
+                  label: const Text('Transaction'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: CustomerColors.blue,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 12.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.r),
+                    ),
                   ),
                 ),
               ),
               SizedBox(width: 8.w),
               IconButton(
                 onPressed: onEdit,
-                icon: Icon(Icons.edit_outlined),
+                icon: const Icon(Icons.edit_outlined),
                 style: IconButton.styleFrom(
                   backgroundColor: CustomerColors.surface2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
                 ),
               ),
               IconButton(
                 onPressed: onDelete,
-                icon: Icon(Icons.delete_outline, color: CustomerColors.red),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: CustomerColors.red,
+                ),
                 style: IconButton.styleFrom(
                   backgroundColor: CustomerColors.red.withOpacity(0.08),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
                 ),
               ),
             ],

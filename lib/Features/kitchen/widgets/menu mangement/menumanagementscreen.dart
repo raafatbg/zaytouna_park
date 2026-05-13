@@ -24,7 +24,7 @@ class MenuItemModel {
   final bool isAvailable;
   final bool requiresPreparation;
   final int? prepTimeMinutes;
-  final String? imageUrl; // <-- ADDED: Image URL field
+  final String? imageUrl;
 
   MenuItemModel({
     required this.id,
@@ -50,7 +50,21 @@ class MenuItemModel {
       isAvailable: json['is_available'] as bool? ?? true,
       requiresPreparation: json['requires_preparation'] as bool? ?? false,
       prepTimeMinutes: json['preparation_time_minutes'] as int?,
-      imageUrl: json['image_url'] as String?, // <-- ADDED: Parse Image URL
+      imageUrl: json['image_url'] as String?,
+    );
+  }
+
+  MenuItemModel copyWith({bool? isAvailable}) {
+    return MenuItemModel(
+      id: id,
+      categoryId: categoryId,
+      categoryName: categoryName,
+      name: name,
+      price: price,
+      isAvailable: isAvailable ?? this.isAvailable,
+      requiresPreparation: requiresPreparation,
+      prepTimeMinutes: prepTimeMinutes,
+      imageUrl: imageUrl,
     );
   }
 }
@@ -91,7 +105,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     final query = _searchController.text.toLowerCase();
     setState(() {
       if (query.isEmpty) {
-        _filteredItems = _menuItems;
+        _filteredItems = List.from(_menuItems);
       } else {
         _filteredItems = _menuItems
             .where(
@@ -107,14 +121,12 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
   Future<void> _fetchData() async {
     setState(() => _isLoading = true);
     try {
-      // Fetch Categories
       final catsRes = await _supabase
           .from('categories')
           .select('id, name')
+          .eq('is_active', true)
           .order('name');
 
-      // Fetch Menu Items (joining with categories to get the category name)
-      // ADDED: Select image_url
       final itemsRes = await _supabase
           .from('menu_items')
           .select(
@@ -123,16 +135,15 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
           .order('name');
 
       if (mounted) {
-        setState(() {
-          _categories = (catsRes as List)
-              .map((c) => MenuCategory.fromJson(c))
-              .toList();
-          _menuItems = (itemsRes as List)
-              .map((i) => MenuItemModel.fromJson(i))
-              .toList();
-          _filteredItems = _menuItems;
-          _isLoading = false;
-        });
+        _categories = (catsRes as List)
+            .map((c) => MenuCategory.fromJson(c))
+            .toList();
+        _menuItems = (itemsRes as List)
+            .map((i) => MenuItemModel.fromJson(i))
+            .toList();
+
+        _filterItems();
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       debugPrint('Error fetching menu data: $e');
@@ -148,21 +159,21 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     }
   }
 
-  Future<void> _deleteItem(int id) async {
+  Future<void> _deleteItem(MenuItemModel item) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Confirm Delete'),
+            const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            const SizedBox(width: 8),
+            const Text('Confirm Delete'),
           ],
         ),
-        content: const Text(
-          'Are you sure you want to delete this menu item?\nThis action cannot be undone.',
+        content: Text(
+          'Are you sure you want to delete "${item.name}"?\nThis action cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -196,7 +207,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     if (confirm != true) return;
 
     try {
-      await _supabase.from('menu_items').delete().eq('id', id);
+      await _supabase.from('menu_items').delete().eq('id', item.id);
       _fetchData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -207,26 +218,57 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
         );
       }
     } catch (e) {
+      final errorStr = e.toString().toLowerCase();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to delete: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        if (errorStr.contains('foreign key') || errorStr.contains('violates')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Cannot delete this product because it exists in past order receipts. Please turn off "Availability" instead.',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
 
   Future<void> _toggleAvailability(int id, bool currentStatus) async {
+    setState(() {
+      final index = _menuItems.indexWhere((i) => i.id == id);
+      if (index != -1) {
+        _menuItems[index] = _menuItems[index].copyWith(
+          isAvailable: !currentStatus,
+        );
+        _filterItems();
+      }
+    });
+
     try {
       await _supabase
           .from('menu_items')
           .update({'is_available': !currentStatus})
           .eq('id', id);
-      _fetchData();
     } catch (e) {
       if (mounted) {
+        setState(() {
+          final index = _menuItems.indexWhere((i) => i.id == id);
+          if (index != -1) {
+            _menuItems[index] = _menuItems[index].copyWith(
+              isAvailable: currentStatus,
+            );
+            _filterItems();
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error updating status: $e'),
@@ -241,323 +283,21 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     if (_categories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please add a Category first!'),
+          content: Text('Please add an Active Category first!'),
           backgroundColor: Colors.orange,
         ),
       );
       return;
     }
 
-    final formKey = GlobalKey<FormState>();
-    final nameCtrl = TextEditingController(text: existingItem?.name ?? '');
-    final priceCtrl = TextEditingController(
-      text: existingItem?.price.toString() ?? '',
-    );
-    final prepTimeCtrl = TextEditingController(
-      text: existingItem?.prepTimeMinutes?.toString() ?? '',
-    );
-    final imageUrlCtrl = TextEditingController(
-      // <-- ADDED: Image URL Controller
-      text: existingItem?.imageUrl ?? '',
-    );
-
-    int? selectedCatId = existingItem?.categoryId ?? _categories.first.id;
-    bool requiresPrep = existingItem?.requiresPreparation ?? true;
-
-    bool isSaving = false;
-
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
-        builder: (context, setState) {
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Text(
-              existingItem == null ? 'Add New Product' : 'Edit Product',
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF111827),
-              ),
-            ),
-            content: SizedBox(
-              width: 500,
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Name & Price Row
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: _buildTextField(
-                              controller: nameCtrl,
-                              label: 'Product Name',
-                              icon: Icons.fastfood_outlined,
-                              validator: (v) =>
-                                  v == null || v.isEmpty ? 'Required' : null,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 1,
-                            child: _buildTextField(
-                              controller: priceCtrl,
-                              label: 'Price (\$)',
-                              icon: Icons.attach_money,
-                              keyboardType: TextInputType.number,
-                              validator: (v) =>
-                                  v == null || v.isEmpty ? 'Required' : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Image URL Field
-                      _buildTextField(
-                        controller: imageUrlCtrl,
-                        label: 'Image URL (Optional)',
-                        icon: Icons.image_outlined,
-                        keyboardType: TextInputType.url,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Category Dropdown
-                      DropdownButtonFormField<int>(
-                        decoration: InputDecoration(
-                          labelText: 'Category',
-                          prefixIcon: const Icon(
-                            Icons.category_outlined,
-                            color: Colors.grey,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: const BorderSide(
-                              color: Color(0xFF10B981),
-                            ),
-                          ),
-                          filled: true,
-                          fillColor: const Color(0xFFF9FAFB),
-                        ),
-                        value: selectedCatId,
-                        items: _categories
-                            .map(
-                              (c) => DropdownMenuItem(
-                                value: c.id,
-                                child: Text(c.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (v) => setState(() => selectedCatId = v),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Type Toggle (Retail vs Kitchen)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: requiresPrep
-                              ? const Color(0xFFFFF7ED)
-                              : const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: requiresPrep
-                                ? const Color(0xFFFED7AA)
-                                : const Color(0xFFBFDBFE),
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SwitchListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: const Text(
-                                'Requires Kitchen Prep',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Text(
-                                requiresPrep
-                                    ? 'Item will be sent to the Kitchen Display.'
-                                    : 'Grab & Go. Cashier hands directly to customer.',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                              value: requiresPrep,
-                              activeColor: const Color(0xFFF59E0B),
-                              inactiveThumbColor: const Color(0xFF3B82F6),
-                              inactiveTrackColor: const Color(0xFFDBEAFE),
-                              onChanged: (v) =>
-                                  setState(() => requiresPrep = v),
-                            ),
-
-                            // Dynamic Fields based on Type
-                            if (requiresPrep) ...[
-                              const Divider(height: 24),
-                              _buildTextField(
-                                controller: prepTimeCtrl,
-                                label: 'Estimated Prep Time (Minutes)',
-                                icon: Icons.timer_outlined,
-                                keyboardType: TextInputType.number,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              if (!isSaving)
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: isSaving
-                    ? null
-                    : () async {
-                        if (!formKey.currentState!.validate()) return;
-                        setState(() => isSaving = true);
-
-                        final itemData = {
-                          'name': nameCtrl.text.trim(),
-                          'price': double.tryParse(priceCtrl.text) ?? 0.0,
-                          'category_id': selectedCatId,
-                          'image_url': imageUrlCtrl.text.trim().isEmpty
-                              ? null
-                              : imageUrlCtrl.text
-                                    .trim(), // <-- ADDED: Save Image URL
-                          'requires_preparation': requiresPrep,
-                          'preparation_time_minutes': requiresPrep
-                              ? (int.tryParse(prepTimeCtrl.text) ?? 0)
-                              : null,
-                        };
-
-                        try {
-                          if (existingItem == null) {
-                            await _supabase.from('menu_items').insert(itemData);
-                          } else {
-                            await _supabase
-                                .from('menu_items')
-                                .update(itemData)
-                                .eq('id', existingItem.id);
-                          }
-
-                          if (mounted) {
-                            Navigator.pop(dialogContext);
-                            _fetchData();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Product saved successfully!'),
-                                backgroundColor: Color(0xFF10B981),
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          setState(() => isSaving = false);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Error saving: $e'),
-                              backgroundColor: Colors.red,
-                            ),
-                          );
-                        }
-                      },
-                child: isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Save Product',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: keyboardType,
-      validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: Colors.grey),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF10B981)),
-        ),
-        filled: true,
-        fillColor: const Color(0xFFF9FAFB),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
+      builder: (BuildContext dialogContext) => _AddEditItemDialog(
+        existingItem: existingItem,
+        categories: _categories,
+        supabase: _supabase,
+        onSuccess: _fetchData,
       ),
     );
   }
@@ -569,20 +309,26 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header
+          // ─── RESPONSIVE HEADER ───
           Container(
-            padding: const EdgeInsets.all(32),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
             ),
-            child: Row(
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 16,
+              runSpacing: 16,
               children: [
+                // Title Area
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
-                      'Menu Management',
+                      'Kitchen Menu Management',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -591,7 +337,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Add, edit, and organize your products.',
+                      'Add, edit, and organize your kitchen & grab-and-go products.',
                       style: TextStyle(
                         color: Colors.grey.shade600,
                         fontSize: 14,
@@ -599,69 +345,81 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     ),
                   ],
                 ),
-                const Spacer(),
-                // Search Bar
-                Container(
-                  width: 300,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF3F4F6),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search products...',
-                      hintStyle: TextStyle(
-                        color: Colors.grey.shade500,
-                        fontSize: 14,
+                // Search & Add Button Area
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      width:
+                          260, // Fixed width for search ensures it stays neat
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F4F6),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade200),
                       ),
-                      prefixIcon: Icon(
-                        Icons.search,
-                        color: Colors.grey.shade500,
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search products...',
+                          hintStyle: TextStyle(
+                            color: Colors.grey.shade500,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: Colors.grey.shade500,
+                            size: 20,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      icon: const Icon(
+                        Icons.add,
+                        color: Colors.white,
                         size: 20,
                       ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      label: const Text(
+                        'Add Product',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 20, // Increased touch area
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: () => _showAddEditDialog(),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add, color: Colors.white, size: 20),
-                  label: const Text(
-                    'Add Product',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 20,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 0,
-                  ),
-                  onPressed: () => _showAddEditDialog(),
+                  ],
                 ),
               ],
             ),
           ),
 
-          // Data Table Area
+          // ─── DATA TABLE AREA ───
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF10B981)),
+                    child: CircularProgressIndicator(color: Color(0xFF2563EB)),
                   )
                 : Padding(
-                    padding: const EdgeInsets.all(32.0),
+                    padding: const EdgeInsets.all(24.0),
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -697,63 +455,19 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                               children: [
                                 Expanded(
                                   flex: 3,
-                                  child: Text(
-                                    'PRODUCT',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey.shade700,
-                                      fontSize: 12,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
+                                  child: _headerText('PRODUCT'),
                                 ),
                                 Expanded(
                                   flex: 2,
-                                  child: Text(
-                                    'CATEGORY',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey.shade700,
-                                      fontSize: 12,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
+                                  child: _headerText('CATEGORY'),
                                 ),
+                                Expanded(flex: 1, child: _headerText('PRICE')),
+                                Expanded(flex: 2, child: _headerText('TYPE')),
                                 Expanded(
                                   flex: 1,
-                                  child: Text(
-                                    'PRICE',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey.shade700,
-                                      fontSize: 12,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    'TYPE',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey.shade700,
-                                      fontSize: 12,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 1,
-                                  child: Text(
+                                  child: _headerText(
                                     'STATUS',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey.shade700,
-                                      fontSize: 12,
-                                      letterSpacing: 0.5,
-                                    ),
+                                    align: TextAlign.center,
                                   ),
                                 ),
                                 const SizedBox(width: 100), // Actions space
@@ -803,37 +517,33 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                                           BorderRadius.circular(
                                                             8,
                                                           ),
-                                                      image:
+                                                    ),
+                                                    child: ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                      child:
                                                           item.imageUrl !=
                                                                   null &&
                                                               item
                                                                   .imageUrl!
                                                                   .isNotEmpty
-                                                          ? DecorationImage(
-                                                              image: NetworkImage(
-                                                                item.imageUrl!,
-                                                              ),
+                                                          ? Image.network(
+                                                              item.imageUrl!,
                                                               fit: BoxFit.cover,
+                                                              errorBuilder:
+                                                                  (
+                                                                    context,
+                                                                    error,
+                                                                    stackTrace,
+                                                                  ) =>
+                                                                      _fallbackIcon(
+                                                                        item,
+                                                                      ),
                                                             )
-                                                          : null,
+                                                          : _fallbackIcon(item),
                                                     ),
-                                                    child:
-                                                        item.imageUrl == null ||
-                                                            item
-                                                                .imageUrl!
-                                                                .isEmpty
-                                                        ? Icon(
-                                                            item.requiresPreparation
-                                                                ? Icons
-                                                                      .restaurant
-                                                                : Icons
-                                                                      .shopping_bag_outlined,
-                                                            size: 20,
-                                                            color: Colors
-                                                                .grey
-                                                                .shade600,
-                                                          )
-                                                        : null,
                                                   ),
                                                   const SizedBox(width: 12),
                                                   Expanded(
@@ -855,7 +565,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                                 ],
                                               ),
                                             ),
-
                                             // Category
                                             Expanded(
                                               flex: 2,
@@ -867,7 +576,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                                 ),
                                               ),
                                             ),
-
                                             // Price
                                             Expanded(
                                               flex: 1,
@@ -879,7 +587,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                                 ),
                                               ),
                                             ),
-
                                             // Type Chip
                                             Expanded(
                                               flex: 2,
@@ -936,7 +643,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                                 ),
                                               ),
                                             ),
-
                                             // Status Toggle
                                             Expanded(
                                               flex: 1,
@@ -955,7 +661,6 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                                 ),
                                               ),
                                             ),
-
                                             // Actions
                                             SizedBox(
                                               width: 100,
@@ -983,7 +688,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                                     ),
                                                     tooltip: 'Delete',
                                                     onPressed: () =>
-                                                        _deleteItem(item.id),
+                                                        _deleteItem(item),
                                                   ),
                                                 ],
                                               ),
@@ -1000,6 +705,365 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _headerText(String text, {TextAlign align = TextAlign.left}) {
+    return Text(
+      text,
+      textAlign: align,
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: Colors.grey.shade700,
+        fontSize: 12,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  Widget _fallbackIcon(MenuItemModel item) {
+    return Icon(
+      item.requiresPreparation ? Icons.restaurant : Icons.shopping_bag_outlined,
+      size: 20,
+      color: Colors.grey.shade600,
+    );
+  }
+}
+
+// ─── ADD / EDIT DIALOG ───────────────────────────
+
+class _AddEditItemDialog extends StatefulWidget {
+  final MenuItemModel? existingItem;
+  final List<MenuCategory> categories;
+  final SupabaseClient supabase;
+  final VoidCallback onSuccess;
+
+  const _AddEditItemDialog({
+    this.existingItem,
+    required this.categories,
+    required this.supabase,
+    required this.onSuccess,
+  });
+
+  @override
+  State<_AddEditItemDialog> createState() => _AddEditItemDialogState();
+}
+
+class _AddEditItemDialogState extends State<_AddEditItemDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameCtrl;
+  late TextEditingController _priceCtrl;
+  late TextEditingController _prepTimeCtrl;
+  late TextEditingController _imageUrlCtrl;
+
+  late int _selectedCatId;
+  late bool _requiresPrep;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.existingItem?.name ?? '');
+    _priceCtrl = TextEditingController(
+      text: widget.existingItem?.price.toString() ?? '',
+    );
+    _prepTimeCtrl = TextEditingController(
+      text: widget.existingItem?.prepTimeMinutes?.toString() ?? '',
+    );
+    _imageUrlCtrl = TextEditingController(
+      text: widget.existingItem?.imageUrl ?? '',
+    );
+
+    _requiresPrep = widget.existingItem?.requiresPreparation ?? true;
+
+    int? initialCatId = widget.existingItem?.categoryId;
+    if (initialCatId != null &&
+        !widget.categories.any((c) => c.id == initialCatId)) {
+      initialCatId = widget.categories.first.id;
+    }
+    _selectedCatId = initialCatId ?? widget.categories.first.id;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _priceCtrl.dispose();
+    _prepTimeCtrl.dispose();
+    _imageUrlCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveData() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
+
+    final itemData = {
+      'name': _nameCtrl.text.trim(),
+      'price': double.tryParse(_priceCtrl.text) ?? 0.0,
+      'category_id': _selectedCatId,
+      'image_url': _imageUrlCtrl.text.trim().isEmpty
+          ? null
+          : _imageUrlCtrl.text.trim(),
+      'requires_preparation': _requiresPrep,
+      'preparation_time_minutes': _requiresPrep
+          ? (int.tryParse(_prepTimeCtrl.text) ?? 0)
+          : null,
+    };
+
+    try {
+      if (widget.existingItem == null) {
+        await widget.supabase.from('menu_items').insert(itemData);
+      } else {
+        await widget.supabase
+            .from('menu_items')
+            .update(itemData)
+            .eq('id', widget.existingItem!.id);
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onSuccess();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Product saved successfully!'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isSaving = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text(
+        widget.existingItem == null ? 'Add New Product' : 'Edit Product',
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF111827),
+        ),
+      ),
+      content: SizedBox(
+        width: 500,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _buildTextField(
+                        controller: _nameCtrl,
+                        label: 'Product Name',
+                        icon: Icons.fastfood_outlined,
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 1,
+                      child: _buildTextField(
+                        controller: _priceCtrl,
+                        label: 'Price (\$)',
+                        icon: Icons.attach_money,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        validator: (v) =>
+                            v == null || v.isEmpty ? 'Required' : null,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  controller: _imageUrlCtrl,
+                  label: 'Image URL (Optional)',
+                  icon: Icons.image_outlined,
+                  keyboardType: TextInputType.url,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<int>(
+                  decoration: InputDecoration(
+                    labelText: 'Category',
+                    prefixIcon: const Icon(
+                      Icons.category_outlined,
+                      color: Colors.grey,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Color(0xFF10B981)),
+                    ),
+                    filled: true,
+                    fillColor: const Color(0xFFF9FAFB),
+                  ),
+                  value: _selectedCatId,
+                  items: widget.categories
+                      .map(
+                        (c) =>
+                            DropdownMenuItem(value: c.id, child: Text(c.name)),
+                      )
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedCatId = v!),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _requiresPrep
+                        ? const Color(0xFFFFF7ED)
+                        : const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _requiresPrep
+                          ? const Color(0xFFFED7AA)
+                          : const Color(0xFFBFDBFE),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Requires Kitchen Prep',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          _requiresPrep
+                              ? 'Item will be sent to the Kitchen Display.'
+                              : 'Grab & Go. Cashier hands directly to customer.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        value: _requiresPrep,
+                        activeColor: const Color(0xFFF59E0B),
+                        inactiveThumbColor: const Color(0xFF3B82F6),
+                        inactiveTrackColor: const Color(0xFFDBEAFE),
+                        onChanged: (v) => setState(() => _requiresPrep = v),
+                      ),
+                      if (_requiresPrep) ...[
+                        const Divider(height: 24),
+                        _buildTextField(
+                          controller: _prepTimeCtrl,
+                          label: 'Estimated Prep Time (Minutes)',
+                          icon: Icons.timer_outlined,
+                          keyboardType: TextInputType.number,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        if (!_isSaving)
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: Colors.grey.shade700,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2563EB),
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onPressed: _isSaving ? null : _saveData,
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+              : const Text(
+                  'Save Product',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.grey),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFF2563EB)),
+        ),
+        filled: true,
+        fillColor: const Color(0xFFF9FAFB),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
     );
   }

@@ -22,6 +22,8 @@ class Routes {
   static const String bookings = '/bookings'; // Football & Padel Calendar
   static const String playground = '/playground'; // Kids Zone Entry/Passes
   static const String tables = '/tables'; // Restaurant Floor Plan
+  static const String manageTables =
+      '/manage-tables'; // Only staff managing the restaurant floor can access this.
 
   // INVENTORY & MENU
   static const String inventory = '/inventory';
@@ -62,6 +64,7 @@ class Routes {
       playground: 'Playground',
       tables: 'Restaurant Tables',
       inventory: 'Stock Control',
+      manageTables: 'Manage Tables',
       orders: 'Order History',
       customers: 'Customer Loyalty',
       expenses: 'Expenses & Bills',
@@ -81,6 +84,7 @@ class Routes {
       playground: Icons.child_friendly_rounded,
       tables: Icons.table_restaurant_rounded,
       inventory: Icons.inventory_rounded,
+      manageTables: Icons.table_restaurant_rounded,
       orders: Icons.receipt_long_rounded,
       customers: Icons.people_rounded,
       expenses: Icons.monetization_on_rounded,
@@ -97,6 +101,7 @@ class Routes {
     playground,
     tables,
     inventory,
+    manageTables,
     orders,
     customers,
     expenses,
@@ -123,6 +128,8 @@ class AppPermissions {
 
   // F&B
   static const String refillMatte = 'refill_matte'; // Specific waiter action
+  static const String managetables =
+      'manage_tables'; // Only staff managing the restaurant floor can access this.
 
   // Back Office
   static const String viewReports = 'view_reports';
@@ -141,7 +148,8 @@ class AppPermissions {
         return useTerminal;
       case Routes.inventory:
         return manageInventory;
-
+      case Routes.manageTables:
+        return managetables; // Only staff managing the restaurant floor
       case Routes.salesReport:
       case Routes.reports:
         return viewReports;

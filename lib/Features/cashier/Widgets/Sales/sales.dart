@@ -1,5 +1,5 @@
 // lib/Features/Sales/sales_screen.dart
-// Zaytouna POS - Sales Report Screen (Connected to Supabase)
+// Zaytouna POS - Daily Sales Report Screen
 
 // ignore_for_file: deprecated_member_use, avoid_print
 
@@ -134,7 +134,6 @@ class Sale {
   final double tax;
   final double discount;
   final double total;
-  final String? server;
   final String? table;
 
   Sale({
@@ -149,7 +148,6 @@ class Sale {
     required this.tax,
     required this.discount,
     required this.total,
-    this.server,
     this.table,
   });
 
@@ -162,7 +160,7 @@ class Sale {
       case SaleStatus.pending:
         return 'Pending';
       case SaleStatus.voided:
-        return 'Voided';
+        return 'Deleted/Void';
       case SaleStatus.refunded:
         return 'Refunded';
       case SaleStatus.cancelled:
@@ -177,7 +175,7 @@ class Sale {
       case SaleStatus.pending:
         return SalesColors.orange;
       case SaleStatus.voided:
-        return SalesColors.red;
+        return SalesColors.textSecondary;
       case SaleStatus.refunded:
         return SalesColors.purple;
       case SaleStatus.cancelled:
@@ -221,14 +219,12 @@ class DailySummary {
   final int totalOrders;
   final double totalSales;
   final double averageOrder;
-  final Map<PaymentMethod, double> paymentBreakdown;
 
   DailySummary({
     required this.date,
     required this.totalOrders,
     required this.totalSales,
     required this.averageOrder,
-    required this.paymentBreakdown,
   });
 }
 
@@ -248,6 +244,7 @@ class _SalesScreenState extends State<SalesScreen> {
   final _searchCtrl = TextEditingController();
 
   List<Sale> _allSales = [];
+  List<Map<String, dynamic>> _allExpenses = [];
   List<Sale> _cachedFiltered = [];
   List<DailySummary> _dailySummaries = [];
 
@@ -258,15 +255,6 @@ class _SalesScreenState extends State<SalesScreen> {
   DateTime _selectedDate = DateTime.now();
 
   bool _isLoading = true;
-
-  // Color shortcuts
-  Color get bg => SalesColors.bg;
-  Color get surface => SalesColors.surface;
-  Color get surface2 => SalesColors.surface2;
-  Color get border => SalesColors.border;
-  Color get textClr => SalesColors.text;
-  Color get textMuted => SalesColors.textSecondary;
-  Color get textDim => SalesColors.textMuted;
 
   @override
   void initState() {
@@ -282,66 +270,113 @@ class _SalesScreenState extends State<SalesScreen> {
     super.dispose();
   }
 
+  SaleStatus _parseStatus(String? status) {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return SaleStatus.completed;
+      case 'active':
+      case 'pending':
+        return SaleStatus.pending;
+      case 'cancelled':
+        return SaleStatus.cancelled;
+      case 'deleted':
+        return SaleStatus.voided;
+      default:
+        return SaleStatus.completed;
+    }
+  }
+
+  PaymentMethod _parsePayment(String? method) {
+    switch (method?.toLowerCase()) {
+      case 'cash':
+        return PaymentMethod.cash;
+      case 'card':
+        return PaymentMethod.card;
+      default:
+        return PaymentMethod.cash;
+    }
+  }
+
   Future<void> _loadSales() async {
     setState(() => _isLoading = true);
     try {
-      // Fetch orders and inner-join order_items & menu_items
+      // 1. Fetch Orders
       final data = await _supabase
           .from('orders')
           .select('''
             id, 
-            total_amount, 
             created_at, 
+            order_status,
+            payment_method,
+            subtotal,
+            tax_amount,
+            discount_amount,
+            total_amount,
+            customers(name),
+            facilities(name),
+            order_types(name),
             order_items (
               id,
               quantity, 
               unit_price, 
               item_total, 
-              menu_items (name)
+              menu_items(name),
+              inventory_items(name)
             )
           ''')
           .order('created_at', ascending: false);
 
+      // 2. Fetch Expenses (Safely in case the table doesn't exist yet)
+      try {
+        final expData = await _supabase
+            .from('expenses')
+            .select('amount, created_at');
+        _allExpenses = List<Map<String, dynamic>>.from(expData);
+      } catch (e) {
+        print("Expenses fetch error (safe to ignore if table missing): $e");
+        _allExpenses = [];
+      }
+
       final sales = <Sale>[];
 
       for (var order in data) {
-        // Parse Items properly
         final rawItems = order['order_items'] as List<dynamic>? ?? [];
         final saleItems = rawItems.map((item) {
-          final menuItem = item['menu_items'] as Map<String, dynamic>?;
+          final String itemName =
+              item['menu_items']?['name'] ??
+              item['inventory_items']?['name'] ??
+              'Unknown Item';
           return SaleItem(
             id: item['id'].toString(),
-            name: menuItem?['name'] as String? ?? 'Unknown Item',
+            name: itemName,
             quantity: (item['quantity'] as num?)?.toInt() ?? 1,
             unitPrice: (item['unit_price'] as num?)?.toDouble() ?? 0.0,
             totalPrice: (item['item_total'] as num?)?.toDouble() ?? 0.0,
           );
         }).toList();
 
-        final total = (order['total_amount'] as num?)?.toDouble() ?? 0.0;
-        final subtotal =
-            total / 1.1; // Assuming 10% tax reverse calculation for UI
-        final tax = total - subtotal;
+        final facilityName = order['facilities']?['name'];
+        final orderTypeName = order['order_types']?['name'] ?? 'Takeaway';
 
         sales.add(
           Sale(
             id: order['id'].toString(),
             invoiceNumber: 'INV-${order['id'].toString().padLeft(6, '0')}',
             date: DateTime.parse(order['created_at']).toLocal(),
-            customerName: 'Walk-in Customer', // Mocked - Not in schema
-            status: SaleStatus.completed, // Mocked - Not in schema
-            paymentMethod: PaymentMethod.card, // Mocked - Not in schema
+            customerName: order['customers']?['name'] ?? 'Walk-in Customer',
+            status: _parseStatus(order['order_status']),
+            paymentMethod: _parsePayment(order['payment_method']),
             items: saleItems,
-            subtotal: subtotal,
-            tax: tax,
-            discount: 0.0,
-            total: total,
-            server: 'POS Terminal',
+            subtotal: (order['subtotal'] as num?)?.toDouble() ?? 0.0,
+            tax: (order['tax_amount'] as num?)?.toDouble() ?? 0.0,
+            discount: (order['discount_amount'] as num?)?.toDouble() ?? 0.0,
+            total: (order['total_amount'] as num?)?.toDouble() ?? 0.0,
+            table: facilityName ?? orderTypeName,
           ),
         );
       }
 
-      // Calculate daily summaries for the chart
+      // Prepare Last 7 days chart data
       final dailySummaries = <DailySummary>[];
       final now = DateTime.now();
       for (int i = 6; i >= 0; i--) {
@@ -351,7 +386,8 @@ class _SalesScreenState extends State<SalesScreen> {
               (s) =>
                   s.date.day == date.day &&
                   s.date.month == date.month &&
-                  s.date.year == date.year,
+                  s.date.year == date.year &&
+                  s.status == SaleStatus.completed,
             )
             .toList();
 
@@ -364,7 +400,6 @@ class _SalesScreenState extends State<SalesScreen> {
             totalOrders: count,
             totalSales: total,
             averageOrder: count > 0 ? total / count : 0,
-            paymentBreakdown: {},
           ),
         );
       }
@@ -415,6 +450,17 @@ class _SalesScreenState extends State<SalesScreen> {
   void _recalculateFiltered() {
     var list = List<Sale>.from(_allSales);
 
+    // 1. STRICT DATE FILTERING: Only show orders for the selected date!
+    list = list
+        .where(
+          (s) =>
+              s.date.year == _selectedDate.year &&
+              s.date.month == _selectedDate.month &&
+              s.date.day == _selectedDate.day,
+        )
+        .toList();
+
+    // 2. Apply other UI filters
     if (_filterStatus != null) {
       list = list.where((s) => s.status == _filterStatus).toList();
     }
@@ -428,7 +474,7 @@ class _SalesScreenState extends State<SalesScreen> {
             (s) =>
                 s.invoiceNumber.toLowerCase().contains(q) ||
                 s.customerName.toLowerCase().contains(q) ||
-                (s.server?.toLowerCase().contains(q) == true),
+                (s.table?.toLowerCase().contains(q) == true),
           )
           .toList();
     }
@@ -437,24 +483,31 @@ class _SalesScreenState extends State<SalesScreen> {
     _cachedFiltered = list;
   }
 
-  // ✅ Computed properties
-  double get _totalSales =>
-      _cachedFiltered.fold(0.0, (sum, s) => sum + s.total);
-  int get _totalOrders => _cachedFiltered.length;
-  double get _averageOrder => _totalOrders > 0 ? _totalSales / _totalOrders : 0;
-  int get _totalItems => _cachedFiltered.fold(0, (sum, s) => sum + s.itemCount);
+  // ─── DYNAMIC KPI GETTERS (Based on _selectedDate) ───
 
-  double get _todaySales {
-    final today = DateTime.now();
-    return _allSales
-        .where(
-          (s) =>
-              s.date.year == today.year &&
-              s.date.month == today.month &&
-              s.date.day == today.day,
-        )
-        .fold(0.0, (sum, s) => sum + s.total);
+  double get _dailySales => _cachedFiltered
+      .where((s) => s.status == SaleStatus.completed)
+      .fold(0.0, (sum, s) => sum + s.total);
+
+  int get _dailyOrders =>
+      _cachedFiltered.where((s) => s.status == SaleStatus.completed).length;
+
+  double get _dailyExpenses {
+    return _allExpenses
+        .where((e) {
+          if (e['created_at'] == null) return false;
+          final d = DateTime.parse(e['created_at']).toLocal();
+          return d.year == _selectedDate.year &&
+              d.month == _selectedDate.month &&
+              d.day == _selectedDate.day;
+        })
+        .fold(
+          0.0,
+          (sum, e) => sum + ((e['amount'] as num?)?.toDouble() ?? 0.0),
+        );
   }
+
+  double get _netProfit => _dailySales - _dailyExpenses;
 
   void _showSaleDetails(Sale sale) {
     _selectedSale = sale;
@@ -490,7 +543,10 @@ class _SalesScreenState extends State<SalesScreen> {
       },
     );
     if (picked != null) {
-      setState(() => _selectedDate = picked);
+      setState(() {
+        _selectedDate = picked;
+        _recalculateFiltered(); // Trigger UI update based on new date
+      });
     }
   }
 
@@ -499,7 +555,7 @@ class _SalesScreenState extends State<SalesScreen> {
     final isWide = MediaQuery.of(context).size.width >= 1200;
 
     return Scaffold(
-      backgroundColor: bg,
+      backgroundColor: SalesColors.bg,
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: SalesColors.cyan),
@@ -523,10 +579,10 @@ class _SalesScreenState extends State<SalesScreen> {
                             const _WelcomeHeader(),
                             SizedBox(height: 24.h),
                             _KPICards(
-                              todaySales: _todaySales,
-                              totalOrders: _totalOrders,
-                              averageOrder: _averageOrder,
-                              totalItems: _totalItems,
+                              dailySales: _dailySales,
+                              dailyExpenses: _dailyExpenses,
+                              netProfit: _netProfit,
+                              totalOrders: _dailyOrders,
                               constraints: constraints,
                             ),
                             SizedBox(height: 24.h),
@@ -607,7 +663,7 @@ class _TopBar extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 20.w),
       decoration: BoxDecoration(
         color: SalesColors.surface,
-        border: Border(bottom: BorderSide(color: SalesColors.border)),
+        border: const Border(bottom: BorderSide(color: SalesColors.border)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -626,7 +682,7 @@ class _TopBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(10.r),
             ),
             child: Icon(
-              Icons.trending_up_rounded,
+              Icons.analytics_rounded,
               size: 20.sp,
               color: Colors.white,
             ),
@@ -637,7 +693,7 @@ class _TopBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'SALES',
+                'DAILY REPORT',
                 style: SalesFonts.sans(
                   8.sp,
                   w: FontWeight.w700,
@@ -645,7 +701,7 @@ class _TopBar extends StatelessWidget {
                 ),
               ),
               Text(
-                'Transaction History',
+                'Sales & Expenses',
                 style: SalesFonts.display(16.sp, w: FontWeight.w700),
               ),
             ],
@@ -732,41 +788,6 @@ class _TopBar extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(width: 12.w),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-            decoration: BoxDecoration(
-              color: SalesColors.cyan,
-              borderRadius: BorderRadius.circular(10.r),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.download_rounded, size: 14.sp, color: Colors.white),
-                SizedBox(width: 6.w),
-                Text(
-                  'Export',
-                  style: SalesFonts.sans(
-                    11.sp,
-                    w: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: 10.w),
-          CircleAvatar(
-            radius: 18.r,
-            backgroundColor: SalesColors.cyanLight,
-            child: Text(
-              'S',
-              style: TextStyle(
-                color: SalesColors.cyan,
-                fontWeight: FontWeight.bold,
-                fontSize: 14.sp,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -804,7 +825,7 @@ class _WelcomeHeader extends StatelessWidget {
               ),
               SizedBox(width: 6.w),
               Text(
-                'TRANSACTION HISTORY',
+                'FINANCIAL OVERVIEW',
                 style: SalesFonts.sans(
                   8.sp,
                   w: FontWeight.w700,
@@ -815,10 +836,10 @@ class _WelcomeHeader extends StatelessWidget {
           ),
         ),
         SizedBox(height: 12.h),
-        Text('Sales Records', style: SalesFonts.display(36.sp)),
+        Text('Daily Sales Report', style: SalesFonts.display(36.sp)),
         SizedBox(height: 6.h),
         Text(
-          'View and manage all sales transactions, filter by status, and export reports.',
+          'View your selected day\'s gross sales, expenses, and net profit.',
           style: SalesFonts.sans(12.sp, color: SalesColors.textSecondary),
         ),
       ],
@@ -827,21 +848,21 @@ class _WelcomeHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  KPI CARDS
+//  KPI CARDS - UPDATED FOR PROFIT/LOSS
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _KPICards extends StatelessWidget {
-  final double todaySales;
+  final double dailySales;
+  final double dailyExpenses;
+  final double netProfit;
   final int totalOrders;
-  final double averageOrder;
-  final int totalItems;
   final BoxConstraints constraints;
 
   const _KPICards({
-    required this.todaySales,
+    required this.dailySales,
+    required this.dailyExpenses,
+    required this.netProfit,
     required this.totalOrders,
-    required this.averageOrder,
-    required this.totalItems,
     required this.constraints,
   });
 
@@ -849,36 +870,38 @@ class _KPICards extends StatelessWidget {
   Widget build(BuildContext context) {
     final cards = [
       _KPI(
-        label: 'Today\'s Sales',
-        value: '\$${todaySales.toStringAsFixed(2)}',
-        subtitle: DateTime.now().toString().split(' ')[0],
-        icon: Icons.today_rounded,
+        label: 'Gross Sales',
+        value: '\$${dailySales.toStringAsFixed(2)}',
+        subtitle: 'Total revenue',
+        icon: Icons.point_of_sale_rounded,
         color: SalesColors.cyan,
         lightColor: SalesColors.cyanLight,
       ),
       _KPI(
+        label: 'Expenses',
+        value: '\$${dailyExpenses.toStringAsFixed(2)}',
+        subtitle: 'Daily outflow',
+        icon: Icons.money_off_rounded,
+        color: SalesColors.red,
+        lightColor: SalesColors.redLight,
+      ),
+      _KPI(
+        label: 'Net Profit',
+        value: '\$${netProfit.toStringAsFixed(2)}',
+        subtitle: 'Sales - Expenses',
+        icon: Icons.account_balance_wallet_rounded,
+        color: netProfit >= 0 ? SalesColors.green : SalesColors.orange,
+        lightColor: netProfit >= 0
+            ? SalesColors.greenLight
+            : SalesColors.orangeLight,
+      ),
+      _KPI(
         label: 'Total Orders',
         value: totalOrders.toString(),
-        subtitle: 'Filtered view',
+        subtitle: 'Completed transactions',
         icon: Icons.receipt_long_rounded,
         color: SalesColors.blue,
         lightColor: SalesColors.blueLight,
-      ),
-      _KPI(
-        label: 'Average Order',
-        value: '\$${averageOrder.toStringAsFixed(2)}',
-        subtitle: 'Per transaction',
-        icon: Icons.analytics_rounded,
-        color: SalesColors.purple,
-        lightColor: SalesColors.purpleLight,
-      ),
-      _KPI(
-        label: 'Items Sold',
-        value: totalItems.toString(),
-        subtitle: 'Total quantity',
-        icon: Icons.shopping_bag_rounded,
-        color: SalesColors.orange,
-        lightColor: SalesColors.orangeLight,
       ),
     ];
 
@@ -1006,7 +1029,7 @@ class _KPICard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  DAILY TREND CHART
+//  DAILY TREND CHART (Keeps track of last 7 days regardless of selection)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _DailyTrendChart extends StatelessWidget {
@@ -1021,7 +1044,6 @@ class _DailyTrendChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Safely calculate maxSales to prevent Division By Zero crash
     final maxSalesRaw = summaries.isEmpty
         ? 0.0
         : summaries.map((s) => s.totalSales).reduce(math.max);
@@ -1048,7 +1070,7 @@ class _DailyTrendChart extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Last 7 Days Performance',
+                'Last 7 Days Sales Trend',
                 style: SalesFonts.sans(14.sp, w: FontWeight.w700),
               ),
               Container(
@@ -1058,7 +1080,7 @@ class _DailyTrendChart extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6.r),
                 ),
                 child: Text(
-                  'Daily Trend',
+                  'Sales',
                   style: SalesFonts.sans(
                     10.sp,
                     color: SalesColors.cyan,
@@ -1069,13 +1091,14 @@ class _DailyTrendChart extends StatelessWidget {
             ],
           ),
           SizedBox(height: 20.h),
+          // FIXED: Increased Height from 180 to 200, lowered multiplier to 110 to fix bottom overflow
           SizedBox(
-            height: 180.h,
+            height: 200.h,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: summaries.asMap().entries.map((entry) {
                 final summary = entry.value;
-                final barHeight = (summary.totalSales / safeMaxSales) * 140.h;
+                final barHeight = (summary.totalSales / safeMaxSales) * 110.h;
                 final isToday =
                     summary.date.day == DateTime.now().day &&
                     summary.date.month == DateTime.now().month;
@@ -1140,7 +1163,7 @@ class _DailyTrendChart extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  SALES TABLE
+//  SALES TABLE - OVERFLOW FIXED
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SalesTable extends StatelessWidget {
@@ -1164,15 +1187,18 @@ class _SalesTable extends StatelessWidget {
 
   static const _headers = [
     'Invoice',
-    'Date',
-    'Customer',
+    'Time',
+    'Customer/Table',
     'Items',
     'Payment',
     'Status',
     'Total',
   ];
-  static const _widths = [130.0, 120.0, 150.0, 70.0, 100.0, 100.0, 100.0];
-  double get _tableWidth => _widths.fold(0.0, (a, b) => a + b) + 32;
+
+  // FIXED: Dynamic ScreenUtil widths to prevent Right Overflow
+  List<double> get _widths => [120.w, 90.w, 180.w, 80.w, 100.w, 110.w, 100.w];
+
+  double get _tableWidth => _widths.fold(0.0, (a, b) => a + b) + 32.w;
 
   @override
   Widget build(BuildContext context) {
@@ -1190,10 +1216,12 @@ class _SalesTable extends StatelessWidget {
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Filter Row
           Container(
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: SalesColors.border)),
             ),
             child: SingleChildScrollView(
@@ -1230,7 +1258,7 @@ class _SalesTable extends StatelessWidget {
                   SizedBox(width: 6.w),
                   _FilterChip(
                     label: 'Voided',
-                    color: SalesColors.red,
+                    color: SalesColors.border,
                     isSelected: filterStatus == SaleStatus.voided,
                     onTap: () => onStatusFilter(SaleStatus.voided),
                   ),
@@ -1264,66 +1292,81 @@ class _SalesTable extends StatelessWidget {
               ),
             ),
           ),
+
+          // Data Table
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: Container(
+            child: SizedBox(
               width: _tableWidth,
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-              decoration: BoxDecoration(
-                color: SalesColors.surface2,
-                border: Border(bottom: BorderSide(color: SalesColors.border)),
-              ),
-              child: Row(
-                children: List.generate(
-                  _headers.length,
-                  (i) => SizedBox(
-                    width: _widths[i],
-                    child: Text(
-                      _headers[i],
-                      style: SalesFonts.sans(
-                        9.sp,
-                        w: FontWeight.w600,
-                        color: SalesColors.textDim,
+              child: Column(
+                children: [
+                  // Table Header
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 12.h,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: SalesColors.surface2,
+                      border: Border(
+                        bottom: BorderSide(color: SalesColors.border),
+                      ),
+                    ),
+                    child: Row(
+                      children: List.generate(
+                        _headers.length,
+                        (i) => SizedBox(
+                          width: _widths[i],
+                          child: Text(
+                            _headers[i],
+                            style: SalesFonts.sans(
+                              9.sp,
+                              w: FontWeight.w600,
+                              color: SalesColors.textDim,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+
+                  // Table Rows
+                  if (sales.isEmpty)
+                    Padding(
+                      padding: EdgeInsets.all(48.w),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.receipt_long_rounded,
+                              size: 48.sp,
+                              color: SalesColors.textDim,
+                            ),
+                            SizedBox(height: 12.h),
+                            Text(
+                              'No sales on this date',
+                              style: SalesFonts.sans(
+                                14.sp,
+                                color: SalesColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    ...sales.map(
+                      (s) => _SaleRow(
+                        sale: s,
+                        isSelected: selected?.id == s.id,
+                        colWidths: _widths,
+                        onTap: () => onSelect(s),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
-          if (sales.isEmpty)
-            Padding(
-              padding: EdgeInsets.all(48.w),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.receipt_long_rounded,
-                      size: 48.sp,
-                      color: SalesColors.textDim,
-                    ),
-                    SizedBox(height: 12.h),
-                    Text(
-                      'No sales found',
-                      style: SalesFonts.sans(
-                        14.sp,
-                        color: SalesColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            ...sales.map(
-              (s) => _SaleRow(
-                sale: s,
-                isSelected: selected?.id == s.id,
-                colWidths: _widths,
-                totalWidth: _tableWidth,
-                onTap: () => onSelect(s),
-              ),
-            ),
         ],
       ),
     );
@@ -1376,120 +1419,90 @@ class _SaleRow extends StatelessWidget {
   final Sale sale;
   final bool isSelected;
   final List<double> colWidths;
-  final double totalWidth;
   final VoidCallback onTap;
 
   const _SaleRow({
     required this.sale,
     required this.isSelected,
     required this.colWidths,
-    required this.totalWidth,
     required this.onTap,
   });
 
-  String _formatTime(DateTime date) {
-    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day) {
-      return 'Today ${_formatTime(date)}';
-    } else if (date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day - 1) {
-      return 'Yesterday ${_formatTime(date)}';
-    }
-    return '${date.day}/${date.month} ${_formatTime(date)}';
-  }
+  String _formatTime(DateTime date) =>
+      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Container(
-          width: totalWidth,
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? SalesColors.cyan.withOpacity(0.04)
-                : SalesColors.surface,
-            border: Border(
-              bottom: BorderSide(color: SalesColors.border),
-              left: BorderSide(
-                color: isSelected ? SalesColors.cyan : Colors.transparent,
-                width: 3,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? SalesColors.cyan.withOpacity(0.04)
+              : SalesColors.surface,
+          border: const Border(bottom: BorderSide(color: SalesColors.border)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: colWidths[0],
+              child: Text(
+                sale.invoiceNumber,
+                style: SalesFonts.mono(
+                  11.sp,
+                  w: FontWeight.w600,
+                  color: SalesColors.cyan,
+                ),
               ),
             ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: colWidths[0],
-                child: Text(
-                  sale.invoiceNumber,
-                  style: SalesFonts.mono(
-                    11.sp,
-                    w: FontWeight.w600,
-                    color: SalesColors.cyan,
-                  ),
-                ),
+            SizedBox(
+              width: colWidths[1],
+              child: Text(
+                _formatTime(sale.date),
+                style: SalesFonts.mono(11.sp, color: SalesColors.textSecondary),
               ),
-              SizedBox(
-                width: colWidths[1],
-                child: Text(
-                  _formatDate(sale.date),
-                  style: SalesFonts.sans(
-                    11.sp,
+            ),
+            SizedBox(
+              width: colWidths[2],
+              child: Text(
+                "${sale.table} • ${sale.customerName}",
+                style: SalesFonts.sans(11.sp),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            SizedBox(
+              width: colWidths[3],
+              child: Text(
+                '${sale.itemCount} items',
+                style: SalesFonts.mono(11.sp, color: SalesColors.textSecondary),
+              ),
+            ),
+            SizedBox(
+              width: colWidths[4],
+              child: Row(
+                children: [
+                  Icon(
+                    sale.paymentMethodIcon,
+                    size: 14.sp,
                     color: SalesColors.textSecondary,
                   ),
-                ),
-              ),
-              SizedBox(
-                width: colWidths[2],
-                child: Text(
-                  sale.customerName,
-                  style: SalesFonts.sans(11.sp),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              SizedBox(
-                width: colWidths[3],
-                child: Text(
-                  '${sale.itemCount} items',
-                  style: SalesFonts.mono(
-                    11.sp,
-                    color: SalesColors.textSecondary,
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: colWidths[4],
-                child: Row(
-                  children: [
-                    Icon(
-                      sale.paymentMethodIcon,
-                      size: 14.sp,
+                  SizedBox(width: 4.w),
+                  Text(
+                    sale.paymentMethodLabel,
+                    style: SalesFonts.sans(
+                      11.sp,
                       color: SalesColors.textSecondary,
                     ),
-                    SizedBox(width: 4.w),
-                    Text(
-                      sale.paymentMethodLabel,
-                      style: SalesFonts.sans(
-                        11.sp,
-                        color: SalesColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              SizedBox(
-                width: colWidths[5],
+            ),
+            SizedBox(
+              width: colWidths[5],
+              child: Align(
+                alignment: Alignment.centerLeft,
                 child: Container(
                   padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                   decoration: BoxDecoration(
@@ -1506,19 +1519,19 @@ class _SaleRow extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(
-                width: colWidths[6],
-                child: Text(
-                  '\$${sale.total.toStringAsFixed(2)}',
-                  style: SalesFonts.mono(
-                    12.sp,
-                    w: FontWeight.w700,
-                    color: SalesColors.text,
-                  ),
+            ),
+            SizedBox(
+              width: colWidths[6],
+              child: Text(
+                '\$${sale.total.toStringAsFixed(2)}',
+                style: SalesFonts.mono(
+                  12.sp,
+                  w: FontWeight.w700,
+                  color: SalesColors.text,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1566,7 +1579,7 @@ class _SaleDetailPanel extends StatelessWidget {
               ],
             ),
           ),
-          Divider(height: 1, color: SalesColors.border),
+          const Divider(height: 1, color: SalesColors.border),
           Padding(
             padding: EdgeInsets.all(16.w),
             child: Column(
@@ -1605,18 +1618,16 @@ class _SaleDetailPanel extends StatelessWidget {
                 ),
                 SizedBox(height: 16.h),
                 _DetailRow(
-                  label: 'Date',
+                  label: 'Time',
                   value:
-                      '${sale.date.day}/${sale.date.month}/${sale.date.year} ${sale.date.hour}:${sale.date.minute.toString().padLeft(2, '0')}',
+                      '${sale.date.hour}:${sale.date.minute.toString().padLeft(2, '0')}',
                 ),
                 _DetailRow(label: 'Customer', value: sale.customerName),
-                if (sale.server != null)
-                  _DetailRow(label: 'Server', value: sale.server!),
                 if (sale.table != null)
                   _DetailRow(label: 'Table', value: sale.table!),
                 _DetailRow(label: 'Payment', value: sale.paymentMethodLabel),
                 SizedBox(height: 16.h),
-                Divider(color: SalesColors.border),
+                const Divider(color: SalesColors.border),
                 SizedBox(height: 8.h),
                 Text(
                   'Items',
@@ -1659,13 +1670,13 @@ class _SaleDetailPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-                Divider(color: SalesColors.border),
+                const Divider(color: SalesColors.border),
                 _SummaryRow(
                   label: 'Subtotal',
                   value: '\$${sale.subtotal.toStringAsFixed(2)}',
                 ),
                 _SummaryRow(
-                  label: 'Tax (10%)',
+                  label: 'Tax',
                   value: '\$${sale.tax.toStringAsFixed(2)}',
                 ),
                 if (sale.discount > 0)
@@ -1697,7 +1708,7 @@ class _SaleDetailPanel extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () {}, // Optional print logic later
                         icon: Icon(Icons.print_rounded, size: 16.sp),
                         label: const Text('Print Receipt'),
                         style: OutlinedButton.styleFrom(
@@ -1791,8 +1802,9 @@ class _SaleDetailSheet extends StatelessWidget {
           ),
           SizedBox(height: 16.h),
           _DetailRow(
-            label: 'Date',
-            value: '${sale.date.day}/${sale.date.month}/${sale.date.year}',
+            label: 'Time',
+            value:
+                '${sale.date.hour}:${sale.date.minute.toString().padLeft(2, '0')}',
           ),
           _DetailRow(label: 'Customer', value: sale.customerName),
           _DetailRow(

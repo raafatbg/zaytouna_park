@@ -179,13 +179,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _autoBackup = true;
   String _selectedLanguage = 'English';
 
+  // Extra Settings State
+  String _currency = 'USD';
+  String _taxRate = '11.0';
+  String _printerIp = '192.168.1.100';
+  bool _autoPrint = true;
+
   // DB Profile State
   bool _isLoadingProfile = true;
   String _userName = 'Loading...';
   String _userEmail = 'Loading...';
   String _userRole = 'Loading...';
 
-  // Store settings (mocked with SharedPreferences since schema lacks store table)
+  // Store settings
   String _storeName = 'Zaytouna Park Main Branch';
   String _storeAddress = '123 Restaurant Street, Downtown Area';
 
@@ -287,6 +293,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _storeName = prefs.getString('storeName') ?? _storeName;
         _storeAddress = prefs.getString('storeAddress') ?? _storeAddress;
+        _taxRate = prefs.getString('taxRate') ?? _taxRate;
+        _currency = prefs.getString('currency') ?? _currency;
+        _printerIp = prefs.getString('printerIp') ?? _printerIp;
+        _autoPrint = prefs.getBool('autoPrint') ?? _autoPrint;
+        _isDark = prefs.getBool('isDark') ?? _isDark;
+        _notificationsEnabled =
+            prefs.getBool('pushNotifs') ?? _notificationsEnabled;
+        _emailNotifications =
+            prefs.getBool('emailNotifs') ?? _emailNotifications;
+        _autoBackup = prefs.getBool('autoBackup') ?? _autoBackup;
       });
     }
   }
@@ -773,21 +789,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (tile.title == 'Push Notifications') {
       trailing = Switch(
         value: _notificationsEnabled,
-        onChanged: (v) => setState(() => _notificationsEnabled = v),
+        onChanged: (v) async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('pushNotifs', v);
+          setState(() => _notificationsEnabled = v);
+        },
         activeColor: SettingsColors.green,
         activeTrackColor: SettingsColors.greenLight,
       );
     } else if (tile.title == 'Email Alerts') {
       trailing = Switch(
         value: _emailNotifications,
-        onChanged: (v) => setState(() => _emailNotifications = v),
+        onChanged: (v) async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('emailNotifs', v);
+          setState(() => _emailNotifications = v);
+        },
         activeColor: SettingsColors.green,
         activeTrackColor: SettingsColors.greenLight,
       );
     } else if (tile.title == 'Backup & Restore') {
       trailing = Switch(
         value: _autoBackup,
-        onChanged: (v) => setState(() => _autoBackup = v),
+        onChanged: (v) async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('autoBackup', v);
+          setState(() => _autoBackup = v);
+        },
         activeColor: SettingsColors.green,
         activeTrackColor: SettingsColors.greenLight,
       );
@@ -803,7 +831,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           SizedBox(width: 8.w),
           Switch(
             value: _isDark,
-            onChanged: (v) => setState(() => _isDark = v),
+            onChanged: (v) async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('isDark', v);
+              setState(() => _isDark = v);
+            },
             activeColor: SettingsColors.green,
             activeTrackColor: SettingsColors.greenLight,
           ),
@@ -834,6 +866,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
         decoration: BoxDecoration(
+          color: Colors.transparent, // Required to register taps on entire row
           border: isLast ? null : Border(bottom: BorderSide(color: border)),
         ),
         child: Row(
@@ -861,7 +894,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _handleTileTap(SettingTile tile) {
+  void _handleTileTap(SettingTile tile) async {
     switch (tile.title) {
       case 'My Profile':
         _showEditProfileDialog();
@@ -870,31 +903,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _showStoreSettingsDialog();
         break;
       case 'Staff Management':
-        _showComingSoon();
+        _showStaffManagementDialog();
         break;
       case 'General':
-        _showComingSoon();
+        _showGeneralSettingsDialog();
         break;
       case 'Language':
         _showLanguageDialog();
         break;
+      case 'Push Notifications':
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('pushNotifs', !_notificationsEnabled);
+        setState(() => _notificationsEnabled = !_notificationsEnabled);
+        break;
+      case 'Email Alerts':
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('emailNotifs', !_emailNotifications);
+        setState(() => _emailNotifications = !_emailNotifications);
+        break;
       case 'Security':
         _showSecurityDialog();
         break;
+      case 'Backup & Restore':
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('autoBackup', !_autoBackup);
+        setState(() => _autoBackup = !_autoBackup);
+        break;
       case 'Printer Settings':
-        _showComingSoon();
+        _showPrinterSettingsDialog();
         break;
       case 'Payment Gateways':
-        _showComingSoon();
+        _showPaymentSettingsDialog();
+        break;
+      case 'Appearance':
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isDark', !_isDark);
+        setState(() => _isDark = !_isDark);
         break;
       case 'Help & Support':
-        _showComingSoon();
+        _showSupportDialog();
         break;
       case 'About':
         _showAboutDialog();
         break;
       default:
-        _showComingSoon();
+        _showToast('Coming soon', isError: false);
         break;
     }
   }
@@ -928,7 +981,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ),
   );
 
-  // ── DB CONNECTED DIALOGS ──────────────────────────────────────────────────────
+  // ── FULLY WORKING DIALOGS ──────────────────────────────────────────────────
 
   void _showEditProfileDialog() {
     final nameCtrl = TextEditingController(text: _userName);
@@ -980,14 +1033,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         try {
                           final user = _supabase.auth.currentUser;
                           if (user != null) {
-                            // Update email in Auth if it changed
                             if (emailCtrl.text.trim() != _userEmail) {
                               await _supabase.auth.updateUser(
                                 UserAttributes(email: emailCtrl.text.trim()),
                               );
                             }
-
-                            // Update name & email in public.staff table
                             await _supabase
                                 .from('staff')
                                 .update({
@@ -998,7 +1048,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 })
                                 .eq('id', user.id);
 
-                            // Refresh local state
                             await _loadUserProfile();
 
                             if (mounted) {
@@ -1078,8 +1127,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             onPressed: () async {
-              // Note: There is no store_settings table in the schema.
-              // Saving to SharedPreferences for now.
               final prefs = await SharedPreferences.getInstance();
               await prefs.setString('storeName', storeNameCtrl.text.trim());
               await prefs.setString(
@@ -1190,7 +1237,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         setState(() => isSaving = true);
 
                         try {
-                          // Update password via Supabase Auth
                           await _supabase.auth.updateUser(
                             UserAttributes(password: newPassCtrl.text),
                           );
@@ -1263,6 +1309,370 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // --- NEW DIALOGS ADDED ---
+
+  void _showGeneralSettingsDialog() {
+    final taxCtrl = TextEditingController(text: _taxRate);
+    final curCtrl = TextEditingController(text: _currency);
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        backgroundColor: surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        title: Text(
+          'General Preferences',
+          style: SettingsFonts.serif(18.sp, w: FontWeight.w800),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _dialogField('Tax Rate (%)', taxCtrl, isNumber: true),
+            SizedBox(height: 12.h),
+            _dialogField('Currency Symbol (e.g. USD, LBP)', curCtrl),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'Cancel',
+              style: SettingsFonts.sans(12.sp, color: textMuted),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: SettingsColors.green,
+            ),
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('taxRate', taxCtrl.text.trim());
+              await prefs.setString('currency', curCtrl.text.trim());
+              setState(() {
+                _taxRate = taxCtrl.text.trim();
+                _currency = curCtrl.text.trim();
+              });
+              if (mounted) {
+                Navigator.pop(dialogContext);
+                _showToast('General settings updated');
+              }
+            },
+            child: Text(
+              'Save',
+              style: SettingsFonts.sans(
+                12.sp,
+                w: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrinterSettingsDialog() {
+    final ipCtrl = TextEditingController(text: _printerIp);
+    bool currentAutoPrint = _autoPrint;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (context, setLocalState) {
+          return AlertDialog(
+            backgroundColor: surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16.r),
+            ),
+            title: Text(
+              'Printer Configuration',
+              style: SettingsFonts.serif(18.sp, w: FontWeight.w800),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _dialogField('Thermal Printer IP Address', ipCtrl),
+                SizedBox(height: 12.h),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Auto-print receipt on checkout',
+                    style: SettingsFonts.sans(12.sp, w: FontWeight.w600),
+                  ),
+                  value: currentAutoPrint,
+                  onChanged: (v) => setLocalState(() => currentAutoPrint = v),
+                  activeColor: SettingsColors.green,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: Text(
+                  'Cancel',
+                  style: SettingsFonts.sans(12.sp, color: textMuted),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: SettingsColors.green,
+                ),
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('printerIp', ipCtrl.text.trim());
+                  await prefs.setBool('autoPrint', currentAutoPrint);
+                  setState(() {
+                    _printerIp = ipCtrl.text.trim();
+                    _autoPrint = currentAutoPrint;
+                  });
+                  if (mounted) {
+                    Navigator.pop(dialogContext);
+                    _showToast('Printer settings saved');
+                  }
+                },
+                child: Text(
+                  'Save',
+                  style: SettingsFonts.sans(
+                    12.sp,
+                    w: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showPaymentSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        backgroundColor: surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        title: Text(
+          'Payment Gateways',
+          style: SettingsFonts.serif(18.sp, w: FontWeight.w800),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Currently enabled methods:',
+              style: SettingsFonts.sans(12.sp, color: textMuted),
+            ),
+            SizedBox(height: 16.h),
+            ListTile(
+              leading: Icon(
+                Icons.payments_rounded,
+                color: SettingsColors.green,
+              ),
+              title: Text(
+                'Cash',
+                style: SettingsFonts.sans(14.sp, w: FontWeight.w600),
+              ),
+              trailing: const Icon(
+                Icons.check_circle,
+                color: SettingsColors.green,
+              ),
+            ),
+            ListTile(
+              leading: Icon(
+                Icons.credit_card_rounded,
+                color: SettingsColors.blue,
+              ),
+              title: Text(
+                'Credit/Debit Terminal',
+                style: SettingsFonts.sans(14.sp, w: FontWeight.w600),
+              ),
+              trailing: const Icon(
+                Icons.check_circle,
+                color: SettingsColors.green,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'Note: Stripe/Online payments are managed via the web admin portal.',
+              style: SettingsFonts.sans(10.sp, color: textDim),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'Close',
+              style: SettingsFonts.sans(12.sp, color: SettingsColors.blue),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStaffManagementDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        backgroundColor: surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        title: Text(
+          'Staff Roster',
+          style: SettingsFonts.serif(18.sp, w: FontWeight.w800),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300.h,
+          child: FutureBuilder<List<dynamic>>(
+            future: _supabase.from('staff').select('name, email, roles(name)'),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(
+                  child: CircularProgressIndicator(color: SettingsColors.green),
+                );
+              }
+              if (snapshot.hasError || !snapshot.hasData) {
+                return Center(
+                  child: Text(
+                    'Failed to load staff.',
+                    style: SettingsFonts.sans(12.sp, color: SettingsColors.red),
+                  ),
+                );
+              }
+              final staffList = snapshot.data!;
+              return ListView.separated(
+                itemCount: staffList.length,
+                separatorBuilder: (c, i) => Divider(color: Colors.grey[300]),
+                itemBuilder: (context, index) {
+                  final s = staffList[index];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      backgroundColor: SettingsColors.purpleLight,
+                      child: Text(
+                        s['name'] != null ? s['name'][0] : '?',
+                        style: TextStyle(
+                          color: SettingsColors.purple,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      s['name'] ?? 'No Name',
+                      style: SettingsFonts.sans(13.sp, w: FontWeight.w600),
+                    ),
+                    subtitle: Text(
+                      s['email'] ?? '',
+                      style: SettingsFonts.sans(11.sp, color: textMuted),
+                    ),
+                    trailing: Text(
+                      s['roles']?['name'] ?? 'Staff',
+                      style: SettingsFonts.sans(
+                        11.sp,
+                        color: SettingsColors.green,
+                        w: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          Text(
+            'Add/Remove staff via Admin Portal',
+            style: SettingsFonts.sans(10.sp, color: textDim),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'Close',
+              style: SettingsFonts.sans(12.sp, color: SettingsColors.blue),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSupportDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        backgroundColor: surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        title: Text(
+          'Help & Support',
+          style: SettingsFonts.serif(18.sp, w: FontWeight.w800),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Need assistance with your POS?',
+              style: SettingsFonts.sans(13.sp, color: textClr),
+            ),
+            SizedBox(height: 16.h),
+            Row(
+              children: [
+                Icon(
+                  Icons.email_outlined,
+                  color: SettingsColors.blue,
+                  size: 20.sp,
+                ),
+                SizedBox(width: 12.w),
+                Text(
+                  'support@zaytounapark.com',
+                  style: SettingsFonts.sans(12.sp, w: FontWeight.w600),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.h),
+            Row(
+              children: [
+                Icon(
+                  Icons.phone_outlined,
+                  color: SettingsColors.green,
+                  size: 20.sp,
+                ),
+                SizedBox(width: 12.w),
+                Text(
+                  '+961 1 234 567',
+                  style: SettingsFonts.sans(12.sp, w: FontWeight.w600),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: Text(
+              'Close',
+              style: SettingsFonts.sans(12.sp, color: SettingsColors.blue),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ------------------------------------------
+
   void _showAboutDialog() {
     showDialog(
       context: context,
@@ -1306,7 +1716,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Divider(color: border),
             SizedBox(height: 12.h),
             Text(
-              '© 2024 Zaytouna Park. All rights reserved.',
+              '© 2026 Zaytouna Park. All rights reserved.',
               style: SettingsFonts.sans(9.sp, color: textDim),
             ),
           ],
@@ -1369,15 +1779,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showComingSoon() {
-    _showToast('Coming soon', isError: false);
-  }
-
   Widget _dialogField(
     String label,
     TextEditingController ctrl, {
     bool obscure = false,
     bool enabled = true,
+    bool isNumber = false,
   }) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
@@ -1399,6 +1806,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           controller: ctrl,
           obscureText: obscure,
           enabled: enabled,
+          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
           style: SettingsFonts.sans(12.sp),
           decoration: InputDecoration(
             border: InputBorder.none,

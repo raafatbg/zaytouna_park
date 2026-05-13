@@ -7,9 +7,13 @@ import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 
 // --- AUTHENTICATION ---
 import 'package:zaytouna_park/Features/Auth/pages/Login/staff_login_page.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
 
 // --- ADMIN SHELL ---
 import 'package:zaytouna_park/Features/admin/admin_shell/admin_shell.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Tables/tables.dart';
 
 // --- DASHBOARDS ---
 import 'package:zaytouna_park/Features/kitchen/home_kitchen.dart';
@@ -18,13 +22,11 @@ import 'package:zaytouna_park/Features/cashier/Shell/appshell.dart';
 
 // --- FEATURE SCREENS ---
 import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
+
 import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Dashboard/analatics.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
 import 'package:zaytouna_park/Features/shared/placeholder_screen.dart';
 
 class AppRouter {
@@ -166,7 +168,11 @@ class AppRouter {
 
       case Routes.expenses:
         return _slideRight(const ExpensesScreen(), settings);
-
+      case Routes.manageTables:
+        return _slideRight(
+          const TablesPage(),
+          settings,
+        ); // Only staff managing the restaurant floor can access this.
       case Routes.reports:
       case Routes.salesReport:
         return _slideRight(const AnalyticsScreen(), settings);

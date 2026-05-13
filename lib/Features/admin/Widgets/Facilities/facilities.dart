@@ -3,18 +3,13 @@
 
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Reuse your established InventoryColors and InventoryFonts here...
-// (Assuming they are accessible or imported)
-
 // ─────────────────────────────────────────────────────────────────────────────
-//  MODELS
+//  MODELS
 // ─────────────────────────────────────────────────────────────────────────────
 
 class Facility {
@@ -50,7 +45,7 @@ class Facility {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  MAIN SCREEN
+//  MAIN SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
 
 class FacilitiesScreen extends StatefulWidget {
@@ -76,8 +71,10 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
     setState(() => _isLoading = true);
     try {
       // Fetch types for the dropdown
-      final typesData = await _supabase.from('facility_types').select('id, name');
-      
+      final typesData = await _supabase
+          .from('facility_types')
+          .select('id, name');
+
       // Fetch facilities with a join on types
       final facilitiesData = await _supabase
           .from('facilities')
@@ -100,16 +97,18 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
   void _showAddDialog() {
     showDialog(
       context: context,
-      builder: (context) => _AddFacilityDialog(
-        types: _types,
-        onSuccess: _fetchFacilities,
-      ),
+      builder: (context) =>
+          _AddFacilityDialog(types: _types, onSuccess: _fetchFacilities),
     );
   }
 
   void _showToast(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: color, behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -122,7 +121,9 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
           _buildHeader(),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF22C55E)))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF22C55E)),
+                  )
                 : _buildGrid(),
           ),
         ],
@@ -139,22 +140,38 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('FACILITIES', 
-                style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.bold, color: const Color(0xFF22C55E))),
-              Text('Park Areas & Assets', 
-                style: GoogleFonts.dmSerifDisplay(fontSize: 22.sp, fontWeight: FontWeight.bold)),
+              Text(
+                'FACILITIES',
+                style: GoogleFonts.inter(
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF22C55E),
+                ),
+              ),
+              Text(
+                'Park Areas & Assets',
+                style: GoogleFonts.dmSerifDisplay(
+                  fontSize: 22.sp,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
           const Spacer(),
           ElevatedButton.icon(
             onPressed: _showAddDialog,
             icon: const Icon(Icons.add_rounded, color: Colors.white),
-            label: Text('New Facility', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            label: Text(
+              'New Facility',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF22C55E),
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.r),
+              ),
               elevation: 0,
             ),
           ),
@@ -165,13 +182,20 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
 
   Widget _buildGrid() {
     if (_facilities.isEmpty) {
-      return Center(child: Text("No facilities found. Add your first area!", style: GoogleFonts.inter(color: Colors.grey)));
+      return Center(
+        child: Text(
+          "No facilities found. Add your first area!",
+          style: GoogleFonts.inter(color: Colors.grey),
+        ),
+      );
     }
 
     return GridView.builder(
       padding: EdgeInsets.all(24.w),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: MediaQuery.of(context).size.width > 1100 ? 4 : (MediaQuery.of(context).size.width > 700 ? 3 : 2),
+        crossAxisCount: MediaQuery.of(context).size.width > 1100
+            ? 4
+            : (MediaQuery.of(context).size.width > 700 ? 3 : 2),
         crossAxisSpacing: 16.w,
         mainAxisSpacing: 16.h,
         childAspectRatio: 1.1,
@@ -186,7 +210,7 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  FACILITY CARD WIDGET
+//  FACILITY CARD WIDGET
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _FacilityCard extends StatelessWidget {
@@ -195,7 +219,9 @@ class _FacilityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = facility.isAvailable ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
+    final statusColor = facility.isAvailable
+        ? const Color(0xFF22C55E)
+        : const Color(0xFFEF4444);
 
     return Container(
       decoration: BoxDecoration(
@@ -212,24 +238,41 @@ class _FacilityCard extends StatelessWidget {
             children: [
               Container(
                 padding: EdgeInsets.all(8.w),
-                decoration: BoxDecoration(color: statusColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8.r)),
-                child: Icon(Icons. bed, size: 18.sp, color: statusColor),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Icon(Icons.bed, size: 18.sp, color: statusColor),
               ),
               _StatusBadge(isAvailable: facility.isAvailable),
             ],
           ),
           const Spacer(),
-          Text(facility.name, 
-            style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 14.sp),
-            maxLines: 1, overflow: TextOverflow.ellipsis),
-          Text(facility.typeName, 
-            style: GoogleFonts.inter(color: Colors.grey, fontSize: 11.sp)),
+          Text(
+            facility.name,
+            style: GoogleFonts.inter(
+              fontWeight: FontWeight.bold,
+              fontSize: 14.sp,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            facility.typeName,
+            style: GoogleFonts.inter(color: Colors.grey, fontSize: 11.sp),
+          ),
           const Divider(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _InfoItem(label: 'CAPACITY', value: '${facility.capacity ?? "∞"}'),
-              _InfoItem(label: 'PRICE/HR', value: '\$${facility.pricePerHour.toStringAsFixed(0)}'),
+              _InfoItem(
+                label: 'CAPACITY',
+                value: '${facility.capacity ?? "∞"}',
+              ),
+              _InfoItem(
+                label: 'PRICE/HR',
+                value: '\$${facility.pricePerHour.toStringAsFixed(0)}',
+              ),
             ],
           ),
         ],
@@ -244,12 +287,23 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isAvailable ? const Color(0xFF22C55E) : const Color(0xFFEF4444);
+    final color = isAvailable
+        ? const Color(0xFF22C55E)
+        : const Color(0xFFEF4444);
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(6.r)),
-      child: Text(isAvailable ? 'READY' : 'BOOKED', 
-        style: GoogleFonts.inter(color: color, fontSize: 9.sp, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6.r),
+      ),
+      child: Text(
+        isAvailable ? 'READY' : 'BOOKED',
+        style: GoogleFonts.inter(
+          color: color,
+          fontSize: 9.sp,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 }
@@ -263,15 +317,28 @@ class _InfoItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 8.sp, color: Colors.grey, fontWeight: FontWeight.bold)),
-        Text(value, style: GoogleFonts.jetBrainsMono(fontSize: 12.sp, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 8.sp,
+            color: Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.jetBrainsMono(
+            fontSize: 12.sp,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ],
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  ADD DIALOG
+//  ADD DIALOG (COLORS FIXED)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AddFacilityDialog extends StatefulWidget {
@@ -316,8 +383,13 @@ class _AddFacilityDialogState extends State<_AddFacilityDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent, // Kills the Material 3 purple tint
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-      title: Text('Add New Area', style: GoogleFonts.dmSerifDisplay()),
+      title: Text(
+        'Add New Area',
+        style: GoogleFonts.dmSerifDisplay(color: const Color(0xFF1A1D26)),
+      ),
       content: SizedBox(
         width: 400.w,
         child: Form(
@@ -327,18 +399,51 @@ class _AddFacilityDialogState extends State<_AddFacilityDialog> {
             children: [
               DropdownButtonFormField<int>(
                 decoration: _inputStyle('Category / Type'),
-                items: widget.types.map((t) => DropdownMenuItem(value: t['id'] as int, child: Text(t['name']))).toList(),
+                dropdownColor: Colors.white,
+                iconEnabledColor: const Color(0xFF22C55E),
+                items: widget.types
+                    .map(
+                      (t) => DropdownMenuItem(
+                        value: t['id'] as int,
+                        child: Text(
+                          t['name'],
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF1A1D26),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (v) => setState(() => _selectedTypeId = v),
                 validator: (v) => v == null ? 'Required' : null,
               ),
               SizedBox(height: 12.h),
-              TextFormField(controller: _nameCtrl, decoration: _inputStyle('Name (e.g. Picnic Area B)'), validator: (v) => v!.isEmpty ? 'Required' : null),
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: _inputStyle('Name (e.g. Picnic Area B)'),
+                style: GoogleFonts.inter(color: const Color(0xFF1A1D26)),
+                validator: (v) => v!.isEmpty ? 'Required' : null,
+              ),
               SizedBox(height: 12.h),
               Row(
                 children: [
-                  Expanded(child: TextFormField(controller: _capCtrl, decoration: _inputStyle('Capacity'), keyboardType: TextInputType.number)),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _capCtrl,
+                      decoration: _inputStyle('Capacity'),
+                      style: GoogleFonts.inter(color: const Color(0xFF1A1D26)),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
                   SizedBox(width: 12.w),
-                  Expanded(child: TextFormField(controller: _priceCtrl, decoration: _inputStyle('Price/hr'), keyboardType: TextInputType.number)),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _priceCtrl,
+                      decoration: _inputStyle('Price/hr'),
+                      style: GoogleFonts.inter(color: const Color(0xFF1A1D26)),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -346,11 +451,45 @@ class _AddFacilityDialogState extends State<_AddFacilityDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: GoogleFonts.inter(color: Colors.grey))),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            'Cancel',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF6B7280),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
         ElevatedButton(
           onPressed: _isSaving ? null : _save,
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r))),
-          child: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Create Facility', style: TextStyle(color: Colors.white)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF22C55E),
+            disabledBackgroundColor: const Color(
+              0xFF22C55E,
+            ).withOpacity(0.6), // Keeps green tone when saving
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+            elevation: 0,
+          ),
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  'Create Facility',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
         ),
       ],
     );
@@ -358,9 +497,33 @@ class _AddFacilityDialogState extends State<_AddFacilityDialog> {
 
   InputDecoration _inputStyle(String label) => InputDecoration(
     labelText: label,
+    labelStyle: GoogleFonts.inter(
+      fontSize: 12.sp,
+      color: const Color(0xFF6B7280),
+    ),
     filled: true,
     fillColor: const Color(0xFFF0F2F5),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide.none),
-    labelStyle: GoogleFonts.inter(fontSize: 12.sp),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12.r),
+      borderSide: BorderSide.none,
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12.r),
+      borderSide: BorderSide.none,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12.r),
+      borderSide: const BorderSide(
+        color: Color(0xFF22C55E),
+        width: 1.5,
+      ), // Active Focus Green
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12.r),
+      borderSide: const BorderSide(
+        color: Color(0xFFEF4444),
+        width: 1.5,
+      ), // Red Error
+    ),
   );
 }

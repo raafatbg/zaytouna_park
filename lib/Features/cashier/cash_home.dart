@@ -7,7 +7,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Your Project Imports
+// ─── YOUR PROJECT IMPORTS ───
+// Make sure these paths match your actual project structure!
 import 'package:zaytouna_park/Core/Routers/routes.dart';
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 
@@ -185,13 +186,13 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
-          table: 'orders', // FIXED: Listening to orders table
+          table: 'orders',
           callback: (payload) {
             if (mounted) {
               HapticFeedback.lightImpact();
               _showNewOrderNotification(payload.newRecord['id']?.toString());
               _cachedMetrics = null;
-              _fetchMetrics(); // Re-fetch on new order
+              _fetchMetrics();
             }
           },
         )
@@ -199,7 +200,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   }
 
   void _showNewOrderNotification(String? orderId) {
-    ScaffoldMessenger.of(context).clearSnackBars(); // Prevent stacking
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -252,7 +253,6 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
 
-      // FIXED: Queries now point to the correct 'orders' table
       final results = await Future.wait([
         _supabase
             .from('orders')
@@ -462,7 +462,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
                         style: ZaytounaTypography.heading(),
                       ),
                       SizedBox(height: 20.h),
-                      _buildMenuGrid(context), // Passed context for constraints
+                      _buildMenuGrid(context),
                       SizedBox(height: 40.h),
                       _buildRecentActivity(),
                       SizedBox(height: 20.h),
@@ -677,35 +677,28 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   }
 
   Widget _buildMenuGrid(BuildContext context) {
-    // EXPANDED MENU LIST: Connecting all your built pages
+    // ─── ADDED FLOOR PLAN AND MANAGE TABLES ───
     final List<MenuTileData> menuTiles = [
       const MenuTileData(
-        title: 'Active Orders',
-        icon: Icons.room_service_rounded,
+        title: 'Menu',
+        icon: Icons.restaurant_menu_rounded,
         iconColor: Colors.white,
         bgColor: ZaytounaColors.warning,
-        route: Routes.orders,
+        route: '/menu',
       ),
       const MenuTileData(
         title: 'Floor Plan',
         icon: Icons.table_restaurant_rounded,
         iconColor: Colors.white,
         bgColor: ZaytounaColors.primaryDark,
-        route: Routes.tables,
+        route: Routes.tables, // For Cashiers to view Tables
       ),
       const MenuTileData(
-        title: 'Sports Bookings',
-        icon: Icons.sports_soccer_rounded,
+        title: 'Manage Tables',
+        icon: Icons.edit_note_rounded,
         iconColor: Colors.white,
-        bgColor: ZaytounaColors.success,
-        route: Routes.bookings,
-      ),
-      const MenuTileData(
-        title: 'Playground',
-        icon: Icons.child_care_rounded,
-        iconColor: Colors.white,
-        bgColor: ZaytounaColors.info,
-        route: Routes.playground,
+        bgColor: Color(0xFF10B981), // Green
+        route: '/manage-tables', // For Admins to Add/Remove Tables
       ),
       const MenuTileData(
         title: 'Inventory',
@@ -713,6 +706,41 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         iconColor: Colors.white,
         bgColor: Color(0xFF3B82F6), // Blue
         route: Routes.inventory,
+      ),
+      const MenuTileData(
+        title: 'Expenses',
+        icon: Icons.account_balance_wallet_rounded,
+        iconColor: Colors.white,
+        bgColor: ZaytounaColors.danger,
+        route: Routes.expenses,
+      ),
+      const MenuTileData(
+        title: 'Facilities',
+        icon: Icons.apartment_rounded,
+        iconColor: Colors.white,
+        bgColor: Color(0xFF8B5CF6), // Purple
+        route: '/facilities',
+      ),
+      const MenuTileData(
+        title: 'Sales',
+        icon: Icons.attach_money_rounded,
+        iconColor: Colors.white,
+        bgColor: ZaytounaColors.success,
+        route: '/sales',
+      ),
+      const MenuTileData(
+        title: 'Orders',
+        icon: Icons.list_rounded,
+        iconColor: Colors.white,
+        bgColor: ZaytounaColors.primaryDark,
+        route: Routes.orders,
+      ),
+      const MenuTileData(
+        title: 'Customers',
+        icon: Icons.people_rounded,
+        iconColor: Colors.white,
+        bgColor: ZaytounaColors.success,
+        route: Routes.customers,
       ),
       const MenuTileData(
         title: 'Categories',
@@ -729,31 +757,23 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         route: Routes.suppliers,
       ),
       const MenuTileData(
-        title: 'Customers',
-        icon: Icons.people_alt_rounded,
-        iconColor: Colors.white,
-        bgColor: ZaytounaColors.success,
-        route: Routes.customers,
-      ),
-      const MenuTileData(
-        title: 'Expenses',
-        icon: Icons.account_balance_wallet_rounded,
-        iconColor: Colors.white,
-        bgColor: ZaytounaColors.danger,
-        route: Routes.expenses,
-      ),
-      const MenuTileData(
         title: 'Analytics',
         icon: Icons.insights_rounded,
         iconColor: Colors.white,
         bgColor: ZaytounaColors.primary,
         route: Routes.reports,
       ),
+      const MenuTileData(
+        title: 'Settings',
+        icon: Icons.settings_rounded,
+        iconColor: Colors.white,
+        bgColor: Color(0xFF6C757D), // Grey
+        route: '/settings',
+      ),
     ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Responsive grid math
         int crossAxisCount = 2;
         if (constraints.maxWidth > 600) crossAxisCount = 3;
         if (constraints.maxWidth > 800) crossAxisCount = 4;
@@ -766,7 +786,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 12.w,
             mainAxisSpacing: 12.h,
-            childAspectRatio: 1.0, // More square to fit nicely
+            childAspectRatio: 1.0,
           ),
           itemCount: menuTiles.length,
           itemBuilder: (_, i) => _buildMenuTile(menuTiles[i]),
@@ -832,7 +852,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   Widget _buildRecentActivity() {
     return FutureBuilder<List<dynamic>>(
       future: _supabase
-          .from('orders') // FIXED: Querying 'orders' table
+          .from('orders')
           .select('id, total_amount, created_at')
           .order('created_at', ascending: false)
           .limit(5),

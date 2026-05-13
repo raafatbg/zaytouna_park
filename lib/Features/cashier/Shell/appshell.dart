@@ -11,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Facilities/facilities.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
 
 // Feature Screens
@@ -22,7 +23,7 @@ import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Dashboard/analatics.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
 import 'package:zaytouna_park/Features/kitchen/widgets/menu%20mangement/menumanagementscreen.dart';
 
 // ADDED: Import your Menu Management Screen here (adjust path if needed)
@@ -45,6 +46,7 @@ class ShellColors {
 }
 
 enum NavTab {
+  orders,
   facilities,
   dashboard,
   pos,
@@ -78,17 +80,29 @@ const navItems = [
     icon: Icons.point_of_sale_rounded,
     label: 'POS Terminal',
   ),
-  NavMeta(
-    tab: NavTab.sales,
-    icon: Icons.room_service_rounded,
-    label: 'Active Orders',
-  ),
-  // ADDED: Menu Management to Sidebar
   NavMeta(tab: NavTab.menu, icon: Icons.restaurant_menu_rounded, label: 'Menu'),
   NavMeta(
     tab: NavTab.inventory,
     icon: Icons.inventory_2_rounded,
     label: 'Inventory',
+  ),
+
+  NavMeta(
+    tab: NavTab.expenses,
+    icon: Icons.account_balance_wallet_rounded,
+    label: 'Expenses',
+  ),
+  NavMeta(
+    tab: NavTab.facilities,
+    icon: Icons.apartment_rounded,
+    label: 'Facilities',
+  ),
+  NavMeta(tab: NavTab.sales, icon: Icons.attach_money_rounded, label: 'Sales'),
+  NavMeta(tab: NavTab.orders, icon: Icons.list_rounded, label: 'Orders'),
+  NavMeta(
+    tab: NavTab.customers,
+    icon: Icons.people_rounded,
+    label: 'Customers',
   ),
   NavMeta(
     tab: NavTab.categories,
@@ -99,26 +113,6 @@ const navItems = [
     tab: NavTab.suppliers,
     icon: Icons.local_shipping_rounded,
     label: 'Suppliers',
-  ),
-  NavMeta(
-    tab: NavTab.customers,
-    icon: Icons.people_alt_rounded,
-    label: 'Customers',
-  ),
-  NavMeta(
-    tab: NavTab.expenses,
-    icon: Icons.account_balance_wallet_rounded,
-    label: 'Expenses',
-  ),
-  NavMeta(
-    tab: NavTab.analytics,
-    icon: Icons.insights_rounded,
-    label: 'Analytics',
-  ),
-   NavMeta(
-    tab: NavTab.facilities,
-    icon: Icons.apartment_rounded,
-    label: 'Facilities',
   ),
   NavMeta(
     tab: NavTab.settings,
@@ -243,6 +237,8 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
         return const FacilitiesScreen();
       case NavTab.settings:
         return const SettingsScreen();
+      case NavTab.orders:
+        return const OrdersScreen();
     }
   }
 
