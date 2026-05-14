@@ -19,19 +19,20 @@ class UserProfile {
     this.permissions = const [],
   });
 
-  bool get isAdmin => role.toLowerCase() == 'admin';
+  bool get isAdmin =>
+      role.toLowerCase() == 'admin' || permissions.contains('all');
 }
 
 class RouteGuard {
-  /// Result object for login attempts
-  static Future<_LoginResult> login(String email, String password) async {
+  /// Result object for login attempts (Made Public)
+  static Future<LoginResult> login(String email, String password) async {
     try {
       final response = await _instance._supabase.auth.signInWithPassword(
         email: email.trim(),
         password: password,
       );
       if (response.user == null) {
-        return _LoginResult(success: false, message: 'Invalid credentials.');
+        return LoginResult(success: false, message: 'Invalid credentials.');
       }
 
       // Refresh session/profile and WAIT for it to complete
@@ -40,15 +41,15 @@ class RouteGuard {
       // If profile is still null, they authenticated but aren't in the staff table
       if (_instance._profile == null) {
         await _instance._supabase.auth.signOut();
-        return _LoginResult(
+        return LoginResult(
           success: false,
           message: 'Staff record not found or account inactive.',
         );
       }
 
-      return _LoginResult(success: true);
+      return LoginResult(success: true);
     } catch (e) {
-      return _LoginResult(success: false, message: e.toString());
+      return LoginResult(success: false, message: e.toString());
     }
   }
 
@@ -121,24 +122,53 @@ class RouteGuard {
   }
 
   List<String> _getPermissions(String role) {
-    if (role.toLowerCase() == 'admin') return ['all'];
-    return ['standard'];
+    switch (role.toLowerCase()) {
+      case 'admin':
+      case 'manager':
+        return ['all']; // Granted everything
+      case 'cashier':
+        return [
+          'use_terminal', 
+          'void_orders', 
+          'manage_bookings',
+          // ─── ADDED PERMISSIONS TO FIX THE DENIED SCREEN ───
+          'manage_tables',
+          'manage_inventory',
+          'manage_expenses',
+          'view_reports',
+          'manage_staff', // Added this just in case you want Cashiers to access Settings too
+        ];
+      case 'kitchen':
+      case 'chef':
+        return [];
+      case 'waiter':
+        return ['refill_matte', 'manage_tables'];
+      default:
+        return [];
+    }
   }
 
-  // --- STATIC HELPERS (Fixes Settings.dart errors) ---
+  // --- STATIC HELPERS ---
   static UserProfile? get user => _instance._profile;
   static bool get isAuthenticated => _instance._profile != null;
   static String? getCurrentUserName() => _instance._profile?.fullName;
   static String? getCurrentUserEmail() => _instance._profile?.email;
   static String? getCurrentUserRole() => _instance._profile?.role;
 
+  // Helper to check if current user has a specific permission
+  static bool hasPermission(String requiredPermission) {
+    if (_instance._profile == null) return false;
+    if (_instance._profile!.isAdmin) return true; // Admins override
+    return _instance._profile!.permissions.contains(requiredPermission);
+  }
+
   static Future<void> logout() async =>
       await _instance._supabase.auth.signOut();
 }
 
 /// Simple result class for login attempts
-class _LoginResult {
+class LoginResult {
   final bool success;
   final String? message;
-  _LoginResult({required this.success, this.message});
+  LoginResult({required this.success, this.message});
 }

@@ -449,8 +449,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
           'Create New Category',
           style: CategoryFonts.display(16.sp, w: FontWeight.w800),
         ),
-        content: SizedBox(
-          width: 320.w,
+        // FIX: Replaced fixed SizedBox with flexible Container
+        content: Container(
+          width: double.maxFinite,
+          constraints: BoxConstraints(maxWidth: 320.w),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -518,8 +520,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
           'Edit Category',
           style: CategoryFonts.display(16.sp, w: FontWeight.w800),
         ),
-        content: SizedBox(
-          width: 320.w,
+        // FIX: Replaced fixed SizedBox with flexible Container
+        content: Container(
+          width: double.maxFinite,
+          constraints: BoxConstraints(maxWidth: 320.w),
           child: _DialogField(
             label: 'Category Name',
             ctrl: nameCtrl,
@@ -797,6 +801,9 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Determine if we have space to show the titles
+    final showTitle = MediaQuery.of(context).size.width > 600;
+
     return Container(
       height: 64.h,
       padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -826,70 +833,76 @@ class _TopBar extends StatelessWidget {
               color: Colors.white,
             ),
           ),
-          SizedBox(width: 12.w),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'CATEGORIES',
-                style: CategoryFonts.sans(
-                  8.sp,
-                  w: FontWeight.w700,
-                  color: CategoryColors.purple,
-                ),
-              ),
-              Text(
-                'Product Groups',
-                style: CategoryFonts.display(16.sp, w: FontWeight.w700),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Container(
-            width: 240.w,
-            height: 40.h,
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            decoration: BoxDecoration(
-              color: CategoryColors.surface2,
-              borderRadius: BorderRadius.circular(10.r),
-              border: Border.all(color: CategoryColors.border),
-            ),
-            child: Row(
+          if (showTitle) ...[
+            SizedBox(width: 12.w),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.search_rounded,
-                  size: 18.sp,
-                  color: CategoryColors.textSecondary,
-                ),
-                SizedBox(width: 8.w),
-                Expanded(
-                  child: TextField(
-                    controller: searchCtrl,
-                    style: CategoryFonts.sans(12.sp),
-                    decoration: InputDecoration(
-                      hintText: 'Search categories...',
-                      hintStyle: CategoryFonts.sans(
-                        11.sp,
-                        color: CategoryColors.textMuted,
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 10.h),
-                    ),
-                    cursorColor: CategoryColors.purple,
+                Text(
+                  'CATEGORIES',
+                  style: CategoryFonts.sans(
+                    8.sp,
+                    w: FontWeight.w700,
+                    color: CategoryColors.purple,
                   ),
                 ),
-                if (searchCtrl.text.isNotEmpty)
-                  GestureDetector(
-                    onTap: () => searchCtrl.clear(),
-                    child: Icon(
-                      Icons.close_rounded,
-                      size: 16.sp,
-                      color: CategoryColors.textSecondary,
-                    ),
-                  ),
+                Text(
+                  'Product Groups',
+                  style: CategoryFonts.display(16.sp, w: FontWeight.w700),
+                ),
               ],
+            ),
+          ],
+          const Spacer(),
+          // FIX: Wrap in Flexible with BoxConstraints
+          Flexible(
+            flex: 2,
+            child: Container(
+              constraints: BoxConstraints(maxWidth: 240.w),
+              height: 40.h,
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              decoration: BoxDecoration(
+                color: CategoryColors.surface2,
+                borderRadius: BorderRadius.circular(10.r),
+                border: Border.all(color: CategoryColors.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.search_rounded,
+                    size: 18.sp,
+                    color: CategoryColors.textSecondary,
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: TextField(
+                      controller: searchCtrl,
+                      style: CategoryFonts.sans(12.sp),
+                      decoration: InputDecoration(
+                        hintText: 'Search categories...',
+                        hintStyle: CategoryFonts.sans(
+                          11.sp,
+                          color: CategoryColors.textMuted,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 10.h),
+                      ),
+                      cursorColor: CategoryColors.purple,
+                    ),
+                  ),
+                  if (searchCtrl.text.isNotEmpty)
+                    GestureDetector(
+                      onTap: () => searchCtrl.clear(),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 16.sp,
+                        color: CategoryColors.textSecondary,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           SizedBox(width: 12.w),
@@ -913,15 +926,17 @@ class _TopBar extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.add_rounded, size: 18.sp, color: Colors.white),
-                  SizedBox(width: 6.w),
-                  Text(
-                    'New Category',
-                    style: CategoryFonts.sans(
-                      12.sp,
-                      w: FontWeight.w600,
-                      color: Colors.white,
+                  if (showTitle) ...[
+                    SizedBox(width: 6.w),
+                    Text(
+                      'New Category',
+                      style: CategoryFonts.sans(
+                        12.sp,
+                        w: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -1168,7 +1183,7 @@ class _SummaryCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  CATEGORIES GRID
+//  CATEGORIES GRID (FIXED FOR RESPONSIVENESS)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CategoriesGrid extends StatelessWidget {
@@ -1186,10 +1201,23 @@ class _CategoriesGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // FIX: Dynamic crossAxisCount and childAspectRatio
     int crossAxisCount = 2;
-    if (constraints.maxWidth > 600) crossAxisCount = 3;
-    if (constraints.maxWidth > 900) crossAxisCount = 4;
-    if (constraints.maxWidth > 1200) crossAxisCount = 5;
+    double childAspectRatio = 0.85;
+
+    if (constraints.maxWidth >= 1200) {
+      crossAxisCount = 5;
+      childAspectRatio = 1.0;
+    } else if (constraints.maxWidth >= 900) {
+      crossAxisCount = 4;
+      childAspectRatio = 0.95;
+    } else if (constraints.maxWidth >= 600) {
+      crossAxisCount = 3;
+      childAspectRatio = 0.9;
+    } else if (constraints.maxWidth < 400) {
+      crossAxisCount = 2;
+      childAspectRatio = 0.75; // More vertical space for narrow phones
+    }
 
     return GridView.builder(
       shrinkWrap: true,
@@ -1198,7 +1226,7 @@ class _CategoriesGrid extends StatelessWidget {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16.w,
         mainAxisSpacing: 16.h,
-        childAspectRatio: 0.9,
+        childAspectRatio: childAspectRatio,
       ),
       itemCount: categories.length + 1,
       itemBuilder: (context, index) {
@@ -1289,12 +1317,17 @@ class _CategoryCard extends StatelessWidget {
                     color: CategoryColors.textMuted,
                   ),
                 ),
-                Text(
-                  '\$${category.totalValue.toStringAsFixed(2)}',
-                  style: CategoryFonts.mono(
-                    11.sp,
-                    w: FontWeight.w700,
-                    color: CategoryColors.text,
+                // FIX: Expanded to prevent total value from causing a RenderFlex error
+                Expanded(
+                  child: Text(
+                    '\$${category.totalValue.toStringAsFixed(2)}',
+                    textAlign: TextAlign.right,
+                    style: CategoryFonts.mono(
+                      11.sp,
+                      w: FontWeight.w700,
+                      color: CategoryColors.text,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -1430,7 +1463,6 @@ class _DialogField extends StatelessWidget {
     );
   }
 }
-
 class _SD {
   final String label;
   final String value;

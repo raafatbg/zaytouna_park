@@ -8,11 +8,14 @@ import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 // --- AUTHENTICATION ---
 import 'package:zaytouna_park/Features/Auth/pages/Login/staff_login_page.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Facilities/facilities.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
 
 // --- ADMIN SHELL ---
 import 'package:zaytouna_park/Features/admin/admin_shell/admin_shell.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Tables/manage_tables_page.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Tables/tables.dart';
 
 // --- DASHBOARDS ---
@@ -22,12 +25,15 @@ import 'package:zaytouna_park/Features/cashier/Shell/appshell.dart';
 
 // --- FEATURE SCREENS ---
 import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
-
 import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
+import 'package:zaytouna_park/Features/kitchen/widgets/menu%20mangement/menumanagementscreen.dart';
 import 'package:zaytouna_park/Features/shared/placeholder_screen.dart';
+
+// --- ADDED ---
+
 
 class AppRouter {
   static final AppRouter _instance = AppRouter._internal();
@@ -39,9 +45,6 @@ class AppRouter {
     final arguments = settings.arguments;
 
     // WEB BUG FIX:
-    // Flutter Web always pushes '/' first before the initialRoute.
-    // We must return a zero-animation blank page for '/' to prevent
-    // transition collisions that crash the Chrome Proxy Service.
     if (routeName == '/' || routeName == '') {
       return PageRouteBuilder(
         settings: settings,
@@ -53,18 +56,10 @@ class AppRouter {
     }
 
     debugPrint('🚀 Navigation to: $routeName');
-    debugPrint('🔐 Is Authenticated: ${RouteGuard.isAuthenticated}');
-
-    if (RouteGuard.isAuthenticated) {
-      debugPrint(
-        '👤 Current User: ${RouteGuard.user?.fullName} (${RouteGuard.user?.role})',
-      );
-    }
 
     // 1. Special handling for login route
     if (routeName == Routes.login) {
       if (RouteGuard.isAuthenticated) {
-        debugPrint('↪️ Already logged in, redirecting to dashboard');
         return _redirectToDashboard();
       }
       return _fade(const LoginScreen(), settings);
@@ -74,6 +69,17 @@ class AppRouter {
     if (!RouteGuard.isAuthenticated) {
       debugPrint('⛔ Not authenticated, redirecting to login');
       return _redirectToLogin();
+    }
+
+    // Optional Security: Check if user has permission for this route
+    final requiredPermission = AppPermissions.requiredFor(routeName ?? '');
+    if (requiredPermission != null &&
+        !RouteGuard.hasPermission(requiredPermission)) {
+      debugPrint('⛔ Access Denied: User lacks $requiredPermission');
+      return _errorRoute(
+        'You do not have permission to access this page.',
+        settings,
+      );
     }
 
     // 3. Handle authenticated routes
@@ -93,12 +99,11 @@ class AppRouter {
     switch (routeName) {
       // ─── DASHBOARDS ────────────────────────────────────────────────────────
       case Routes.adminDashboard:
-        // FIX: Removed "const" here
         return _fade(AdminShellScreen(), settings);
 
       case Routes.cashierDashboard:
       case Routes.shell:
-        return _fade(CashierShellScreen(), settings);
+        return _fade(const CashierShellScreen(), settings);
 
       case Routes.kitchenDashboard:
         return _fade(const KitchenScreen(), settings);
@@ -139,15 +144,15 @@ class AppRouter {
           settings,
         );
 
+      // FIX: Floor Plan is now pointing directly to TablesPage instead of PlaceholderScreen
       case Routes.tables:
-        return _slideRight(
-          const PlaceholderScreen(
-            title: 'Floor Plan',
-            message: 'Restaurant table status and Matte refills.',
-            icon: Icons.table_bar_rounded,
-          ),
-          settings,
-        );
+        return _slideRight(const FloorPlanScreen(), settings);
+
+      case Routes.manageTables:
+        return _slideRight(const ManageTablesScreen(), settings);
+
+      case Routes.facilities:
+        return _slideRight(const FacilitiesScreen(), settings);
 
       // ─── INVENTORY & BACK OFFICE ───────────────────────────────────────────
       case Routes.inventory:
@@ -159,41 +164,34 @@ class AppRouter {
       case Routes.suppliers:
         return _slideRight(const SuppliersScreen(), settings);
 
+      case Routes.menu:
+        return _slideRight(const MenuManagementScreen(), settings);
+
       // ─── SALES & FINANCE ───────────────────────────────────────────────────
       case Routes.orders:
         return _slideRight(const SalesScreen(), settings);
+
+      case Routes.sales:
+        return _slideRight(
+          const SalesScreen(),
+          settings,
+        );
 
       case Routes.customers:
         return _slideRight(const CustomersScreen(), settings);
 
       case Routes.expenses:
         return _slideRight(const ExpensesScreen(), settings);
-      case Routes.manageTables:
-        return _slideRight(
-          const TablesPage(),
-          settings,
-        ); // Only staff managing the restaurant floor can access this.
+
       case Routes.reports:
       case Routes.salesReport:
         return _slideRight(const AnalyticsScreen(), settings);
 
-      case Routes.deletedOrders:
-        return _slideRight(
-          const PlaceholderScreen(
-            title: 'Deleted Orders',
-            message: 'View and restore deleted orders.',
-            icon: Icons.delete_sweep_rounded,
-          ),
-          settings,
-        );
 
       // ─── SYSTEM ────────────────────────────────────────────────────────────
       case Routes.settings:
         return _slideRight(
-          const PlaceholderScreen(
-            title: 'Settings',
-            icon: Icons.settings_suggest_rounded,
-          ),
+          const SettingsScreen(),
           settings,
         );
 
@@ -226,7 +224,6 @@ class AppRouter {
 
     switch (user.role.toLowerCase()) {
       case 'admin':
-        // FIX: Removed "const" here
         targetPage = AdminShellScreen();
         targetRoute = Routes.adminDashboard;
         break;
@@ -242,7 +239,6 @@ class AppRouter {
         break;
     }
 
-    // Use zero-duration transitions for redirects to prevent animation overlap bugs
     return PageRouteBuilder(
       settings: RouteSettings(name: targetRoute),
       pageBuilder: (_, __, ___) => targetPage,

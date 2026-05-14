@@ -22,20 +22,28 @@ class Routes {
   static const String bookings = '/bookings'; // Football & Padel Calendar
   static const String playground = '/playground'; // Kids Zone Entry/Passes
   static const String tables = '/tables'; // Restaurant Floor Plan
-  static const String manageTables =
-      '/manage-tables'; // Only staff managing the restaurant floor can access this.
+  static const String manageTables = '/manage-tables'; // Staff managing the restaurant floor
+  
+  // ADDED MISSING FACILITIES ROUTE
+  static const String facilities = '/facilities'; 
 
   // INVENTORY & MENU
   static const String inventory = '/inventory';
   static const String categories = '/categories';
   static const String suppliers = '/suppliers';
   static const String menuItems = '/menu-items'; // Products & Matte Kits
+  
+  // ADDED MISSING MENU ROUTE
+  static const String menu = '/menu'; 
 
   // SALES & ORDERS
   static const String orders = '/orders';
   static const String salesReport = '/sales-report';
   static const String reports = '/reports';
   static const String deletedOrders = '/deleted-orders';
+  
+  // ADDED MISSING SALES ROUTE
+  static const String sales = '/sales'; 
 
   // FINANCE & CUSTOMERS
   static const String customers = '/customers';
@@ -69,6 +77,10 @@ class Routes {
       customers: 'Customer Loyalty',
       expenses: 'Expenses & Bills',
       settings: 'Settings',
+      // Added display names for the new routes
+      menu: 'Menu Management',
+      facilities: 'Facilities',
+      sales: 'Sales',
     };
     return names[route] ?? 'Zaytouna Park';
   }
@@ -80,7 +92,7 @@ class Routes {
       kitchenDashboard: Icons.kitchen,
       home: Icons.dashboard_rounded,
       pos: Icons.point_of_sale_rounded,
-      bookings: Icons.sports_tennis_rounded, // Padel/Football icon
+      bookings: Icons.sports_tennis_rounded, 
       playground: Icons.child_friendly_rounded,
       tables: Icons.table_restaurant_rounded,
       inventory: Icons.inventory_rounded,
@@ -89,6 +101,10 @@ class Routes {
       customers: Icons.people_rounded,
       expenses: Icons.monetization_on_rounded,
       settings: Icons.settings_rounded,
+      // Added icons for the new routes
+      menu: Icons.restaurant_menu_rounded,
+      facilities: Icons.apartment_rounded,
+      sales: Icons.attach_money_rounded,
     };
     return icons[route] ?? Icons.circle_outlined;
   }
@@ -121,15 +137,12 @@ class AppPermissions {
   static const String voidOrders = 'void_orders';
 
   // Sports & Facilities
-  static const String manageBookings =
-      'manage_bookings'; // Can book Football/Padel
-  static const String manageFacilities =
-      'manage_facilities'; // Can open/close fields
+  static const String manageBookings = 'manage_bookings'; 
+  static const String manageFacilities = 'manage_facilities'; 
 
   // F&B
-  static const String refillMatte = 'refill_matte'; // Specific waiter action
-  static const String managetables =
-      'manage_tables'; // Only staff managing the restaurant floor can access this.
+  static const String refillMatte = 'refill_matte'; 
+  static const String managetables = 'manage_tables'; 
 
   // Back Office
   static const String viewReports = 'view_reports';
@@ -149,16 +162,16 @@ class AppPermissions {
       case Routes.inventory:
         return manageInventory;
       case Routes.manageTables:
-        return managetables; // Only staff managing the restaurant floor
+        return managetables; 
       case Routes.salesReport:
       case Routes.reports:
         return viewReports;
       case Routes.expenses:
         return manageExpenses;
       case Routes.settings:
-        return manageStaff; // Only admins/managers see settings
+        return manageStaff; 
       default:
-        return null; // Publicly accessible to all logged-in staff
+        return null; 
     }
   }
 }

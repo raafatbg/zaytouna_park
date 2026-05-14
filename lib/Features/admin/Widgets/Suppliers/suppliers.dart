@@ -634,7 +634,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                 children: [
                                   Expanded(
                                     flex: 2,
-                                    child: _SupplierList(
+                                    child: _SupplierTable(
                                       suppliers: _cachedFiltered,
                                       selected: _selected,
                                       onSelect: (s) =>
@@ -657,7 +657,7 @@ class _SuppliersScreenState extends State<SuppliersScreen> {
                                 ],
                               )
                             else
-                              _SupplierList(
+                              _SupplierTable(
                                 suppliers: _cachedFiltered,
                                 selected: _selected,
                                 onSelect: (s) {
@@ -690,6 +690,9 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Hide title on small screens to prevent overflow
+    final showTitle = MediaQuery.of(context).size.width > 600;
+
     return Container(
       height: 64.h,
       padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -712,70 +715,76 @@ class _TopBar extends StatelessWidget {
               color: Colors.white,
             ),
           ),
-          SizedBox(width: 12.w),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'SUPPLIERS',
-                style: SupplierFonts.sans(
-                  8.sp,
-                  w: FontWeight.w700,
-                  color: SupplierColors.indigo,
-                ),
-              ),
-              Text(
-                'Vendor Management',
-                style: SupplierFonts.display(16.sp, w: FontWeight.w700),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Container(
-            width: 240.w,
-            height: 40.h,
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            decoration: BoxDecoration(
-              color: SupplierColors.surface2,
-              borderRadius: BorderRadius.circular(10.r),
-              border: Border.all(color: SupplierColors.border),
-            ),
-            child: Row(
+          if (showTitle) ...[
+            SizedBox(width: 12.w),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.search_rounded,
-                  size: 18.sp,
-                  color: SupplierColors.textSecondary,
-                ),
-                SizedBox(width: 8.w),
-                Expanded(
-                  child: TextField(
-                    controller: searchCtrl,
-                    style: SupplierFonts.sans(12.sp),
-                    decoration: InputDecoration(
-                      hintText: 'Search vendors...',
-                      hintStyle: SupplierFonts.sans(
-                        11.sp,
-                        color: SupplierColors.textMuted,
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 10.h),
-                    ),
-                    cursorColor: SupplierColors.indigo,
+                Text(
+                  'SUPPLIERS',
+                  style: SupplierFonts.sans(
+                    8.sp,
+                    w: FontWeight.w700,
+                    color: SupplierColors.indigo,
                   ),
                 ),
-                if (searchCtrl.text.isNotEmpty)
-                  GestureDetector(
-                    onTap: () => searchCtrl.clear(),
-                    child: Icon(
-                      Icons.close_rounded,
-                      size: 16.sp,
-                      color: SupplierColors.textSecondary,
-                    ),
-                  ),
+                Text(
+                  'Vendor Management',
+                  style: SupplierFonts.display(16.sp, w: FontWeight.w700),
+                ),
               ],
+            ),
+          ],
+          const Spacer(),
+          // Wrap in Flexible to prevent overflow
+          Flexible(
+            flex: 2,
+            child: Container(
+              constraints: BoxConstraints(maxWidth: 240.w),
+              height: 40.h,
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              decoration: BoxDecoration(
+                color: SupplierColors.surface2,
+                borderRadius: BorderRadius.circular(10.r),
+                border: Border.all(color: SupplierColors.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.search_rounded,
+                    size: 18.sp,
+                    color: SupplierColors.textSecondary,
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: TextField(
+                      controller: searchCtrl,
+                      style: SupplierFonts.sans(12.sp),
+                      decoration: InputDecoration(
+                        hintText: 'Search vendors...',
+                        hintStyle: SupplierFonts.sans(
+                          11.sp,
+                          color: SupplierColors.textMuted,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 10.h),
+                      ),
+                      cursorColor: SupplierColors.indigo,
+                    ),
+                  ),
+                  if (searchCtrl.text.isNotEmpty)
+                    GestureDetector(
+                      onTap: () => searchCtrl.clear(),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 16.sp,
+                        color: SupplierColors.textSecondary,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           SizedBox(width: 12.w),
@@ -799,15 +808,17 @@ class _TopBar extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.add_rounded, size: 18.sp, color: Colors.white),
-                  SizedBox(width: 6.w),
-                  Text(
-                    'Add Supplier',
-                    style: SupplierFonts.sans(
-                      12.sp,
-                      w: FontWeight.w600,
-                      color: Colors.white,
+                  if (showTitle) ...[
+                    SizedBox(width: 6.w),
+                    Text(
+                      'Add Supplier',
+                      style: SupplierFonts.sans(
+                        12.sp,
+                        w: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -1047,19 +1058,38 @@ class _SummaryCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  SUPPLIER LIST
+//  SUPPLIER TABLE (Replaced list to prevent horizontal overflow)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SupplierList extends StatelessWidget {
+class _SupplierTable extends StatelessWidget {
   final List<Supplier> suppliers;
   final Supplier? selected;
   final Function(Supplier) onSelect;
 
-  const _SupplierList({
+  const _SupplierTable({
     required this.suppliers,
     required this.selected,
     required this.onSelect,
   });
+
+  static const _headers = [
+    'Supplier Info',
+    'Phone',
+    'Email',
+    'Purchases',
+    'Balance',
+  ];
+
+  // Fixed widths prevent scaling issues
+  List<double> get _widths => [
+    240.w, // Info
+    120.w, // Phone
+    160.w, // Email
+    110.w, // Purchases
+    110.w, // Balance
+  ];
+
+  double get _tableWidth => _widths.fold(0.0, (a, b) => a + b) + 32.w;
 
   @override
   Widget build(BuildContext context) {
@@ -1069,244 +1099,230 @@ class _SupplierList extends StatelessWidget {
         borderRadius: BorderRadius.circular(14.r),
         border: Border.all(color: SupplierColors.border),
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-            decoration: BoxDecoration(
-              color: SupplierColors.surface2,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(14.r)),
-              border: Border(bottom: BorderSide(color: SupplierColors.border)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'Supplier Info',
-                    style: SupplierFonts.sans(
-                      10.sp,
-                      w: FontWeight.w600,
-                      color: SupplierColors.textDim,
-                    ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: _tableWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: SupplierColors.surface2,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(14.r),
+                  ),
+                  border: Border(
+                    bottom: BorderSide(color: SupplierColors.border),
                   ),
                 ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Phone',
-                    style: SupplierFonts.sans(
-                      10.sp,
-                      w: FontWeight.w600,
-                      color: SupplierColors.textDim,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Email',
-                    style: SupplierFonts.sans(
-                      10.sp,
-                      w: FontWeight.w600,
-                      color: SupplierColors.textDim,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'Purchases',
-                    style: SupplierFonts.sans(
-                      10.sp,
-                      w: FontWeight.w600,
-                      color: SupplierColors.textDim,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 1,
-                  child: Text(
-                    'Balance',
-                    style: SupplierFonts.sans(
-                      10.sp,
-                      w: FontWeight.w600,
-                      color: SupplierColors.textDim,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 40.w),
-              ],
-            ),
-          ),
-          if (suppliers.isEmpty)
-            Padding(
-              padding: EdgeInsets.all(48.w),
-              child: Center(
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.domain_disabled_rounded,
-                      size: 48.sp,
-                      color: SupplierColors.textDim,
-                    ),
-                    SizedBox(height: 12.h),
-                    Text(
-                      'No suppliers match your search.',
-                      style: SupplierFonts.sans(
-                        14.sp,
-                        color: SupplierColors.textSecondary,
+                child: Row(
+                  children: List.generate(
+                    _headers.length,
+                    (i) => SizedBox(
+                      width: _widths[i],
+                      child: Text(
+                        _headers[i],
+                        style: SupplierFonts.sans(
+                          10.sp,
+                          w: FontWeight.w600,
+                          color: SupplierColors.textDim,
+                        ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-            )
-          else
-            ...suppliers.map(
-              (s) => _SupplierRow(
-                supplier: s,
-                isSelected: selected?.id == s.id,
-                onTap: () => onSelect(s),
-              ),
-            ),
-        ],
+              if (suppliers.isEmpty)
+                Padding(
+                  padding: EdgeInsets.all(48.w),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.domain_disabled_rounded,
+                          size: 48.sp,
+                          color: SupplierColors.textDim,
+                        ),
+                        SizedBox(height: 12.h),
+                        Text(
+                          'No suppliers match your search.',
+                          style: SupplierFonts.sans(
+                            14.sp,
+                            color: SupplierColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ...suppliers.map(
+                  (s) => _TableRow(
+                    supplier: s,
+                    isSelected: selected?.id == s.id,
+                    colWidths: _widths,
+                    onTap: () => onSelect(s),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-class _SupplierRow extends StatelessWidget {
+class _TableRow extends StatefulWidget {
   final Supplier supplier;
   final bool isSelected;
+  final List<double> colWidths;
   final VoidCallback onTap;
 
-  const _SupplierRow({
+  const _TableRow({
     required this.supplier,
     required this.isSelected,
+    required this.colWidths,
     required this.onTap,
   });
 
   @override
+  State<_TableRow> createState() => _TableRowState();
+}
+
+class _TableRowState extends State<_TableRow> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? SupplierColors.indigo.withOpacity(0.04)
-              : SupplierColors.surface,
-          border: Border(
-            bottom: BorderSide(color: SupplierColors.border),
-            left: BorderSide(
-              color: isSelected ? SupplierColors.indigo : Colors.transparent,
-              width: 3,
+    final s = widget.supplier;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? SupplierColors.indigo.withOpacity(0.04)
+                : (_hovered ? SupplierColors.surface2 : SupplierColors.surface),
+            border: Border(
+              bottom: BorderSide(color: SupplierColors.border),
+              left: BorderSide(
+                color: widget.isSelected
+                    ? SupplierColors.indigo
+                    : Colors.transparent,
+                width: 3,
+              ),
             ),
           ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Row(
-                children: [
-                  Container(
-                    width: 36.w,
-                    height: 36.w,
-                    decoration: BoxDecoration(
-                      color: supplier.color.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                    child: Center(
-                      child: Text(
-                        supplier.name.isNotEmpty
-                            ? supplier.name[0].toUpperCase()
-                            : '?',
-                        style: SupplierFonts.sans(
-                          14.sp,
-                          w: FontWeight.w700,
-                          color: supplier.color,
+          child: Row(
+            children: [
+              SizedBox(
+                width: widget.colWidths[0],
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36.w,
+                      height: 36.w,
+                      decoration: BoxDecoration(
+                        color: s.color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: Center(
+                        child: Text(
+                          s.name.isNotEmpty ? s.name[0].toUpperCase() : '?',
+                          style: SupplierFonts.sans(
+                            14.sp,
+                            w: FontWeight.w700,
+                            color: s.color,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  SizedBox(width: 10.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          supplier.name,
-                          style: SupplierFonts.sans(12.sp, w: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 2.h),
-                        Text(
-                          supplier.contactPerson.isEmpty
-                              ? 'No contact'
-                              : supplier.contactPerson,
-                          style: SupplierFonts.sans(
-                            10.sp,
-                            color: SupplierColors.textSecondary,
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            s.name,
+                            style: SupplierFonts.sans(
+                              12.sp,
+                              w: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                          SizedBox(height: 2.h),
+                          Text(
+                            s.contactPerson.isEmpty
+                                ? 'No contact'
+                                : s.contactPerson,
+                            style: SupplierFonts.sans(
+                              10.sp,
+                              color: SupplierColors.textSecondary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: widget.colWidths[1],
+                child: Text(
+                  s.phone.isEmpty ? '-' : s.phone,
+                  style: SupplierFonts.mono(
+                    10.sp,
+                    color: SupplierColors.textSecondary,
                   ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                supplier.phone.isEmpty ? '-' : supplier.phone,
-                style: SupplierFonts.mono(
-                  10.sp,
-                  color: SupplierColors.textSecondary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                supplier.email.isEmpty ? '-' : supplier.email,
-                style: SupplierFonts.mono(
-                  10.sp,
-                  color: SupplierColors.textSecondary,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Expanded(
-              flex: 1,
-              child: Text(
-                '\$${supplier.totalPurchases.toStringAsFixed(0)}',
-                style: SupplierFonts.mono(
-                  11.sp,
-                  w: FontWeight.w600,
-                  color: SupplierColors.blue,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ),
-            Expanded(
-              flex: 1,
-              child: Text(
-                '\$${supplier.balance.toStringAsFixed(2)}',
-                style: SupplierFonts.mono(
-                  11.sp,
-                  w: FontWeight.w600,
-                  color: supplier.balance == 0
-                      ? SupplierColors.green
-                      : SupplierColors.orange,
+              SizedBox(
+                width: widget.colWidths[2],
+                child: Text(
+                  s.email.isEmpty ? '-' : s.email,
+                  style: SupplierFonts.mono(
+                    10.sp,
+                    color: SupplierColors.textSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.right,
               ),
-            ),
-            SizedBox(width: 40.w),
-          ],
+              SizedBox(
+                width: widget.colWidths[3],
+                child: Text(
+                  '\$${s.totalPurchases.toStringAsFixed(0)}',
+                  style: SupplierFonts.mono(
+                    11.sp,
+                    w: FontWeight.w600,
+                    color: SupplierColors.blue,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              SizedBox(
+                width: widget.colWidths[4],
+                child: Text(
+                  '\$${s.balance.toStringAsFixed(2)}',
+                  style: SupplierFonts.mono(
+                    11.sp,
+                    w: FontWeight.w600,
+                    color: s.balance == 0
+                        ? SupplierColors.green
+                        : SupplierColors.orange,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1402,6 +1418,9 @@ class _DetailPanel extends StatelessWidget {
                     13.sp,
                     color: SupplierColors.textSecondary,
                   ),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 16.h),
                 _DetailRow(
@@ -1437,6 +1456,7 @@ class _DetailPanel extends StatelessWidget {
                                 w: FontWeight.w700,
                                 color: SupplierColors.blue,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               'Purchases',
@@ -1458,6 +1478,7 @@ class _DetailPanel extends StatelessWidget {
                                 w: FontWeight.w700,
                                 color: SupplierColors.green,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               'Payments',
@@ -1481,6 +1502,7 @@ class _DetailPanel extends StatelessWidget {
                                     ? SupplierColors.green
                                     : SupplierColors.orange,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             Text(
                               'Balance',
@@ -1645,6 +1667,7 @@ class _DetailSheet extends StatelessWidget {
                           w: FontWeight.w700,
                           color: SupplierColors.blue,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         'Purchases',
@@ -1668,6 +1691,7 @@ class _DetailSheet extends StatelessWidget {
                               ? SupplierColors.green
                               : SupplierColors.orange,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         'Balance',
@@ -1694,6 +1718,9 @@ class _DetailSheet extends StatelessWidget {
                     backgroundColor: SupplierColors.indigo,
                     foregroundColor: Colors.white,
                     padding: EdgeInsets.symmetric(vertical: 12.h),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.r),
+                    ),
                   ),
                 ),
               ),
@@ -1703,6 +1730,9 @@ class _DetailSheet extends StatelessWidget {
                 icon: const Icon(Icons.edit_outlined),
                 style: IconButton.styleFrom(
                   backgroundColor: SupplierColors.surface2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
                 ),
               ),
               IconButton(
@@ -1713,6 +1743,9 @@ class _DetailSheet extends StatelessWidget {
                 ),
                 style: IconButton.styleFrom(
                   backgroundColor: SupplierColors.red.withOpacity(0.08),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
                 ),
               ),
             ],
@@ -1735,7 +1768,15 @@ class _DetailRow extends StatelessWidget {
       children: [
         Icon(icon, size: 16.sp, color: SupplierColors.textSecondary),
         SizedBox(width: 10.w),
-        Expanded(child: Text(label, style: SupplierFonts.sans(12.sp))),
+        // Wrapped with Expanded and ellipsis to prevent overflow on long emails/addresses
+        Expanded(
+          child: Text(
+            label,
+            style: SupplierFonts.sans(12.sp),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }
@@ -1822,8 +1863,10 @@ class _SupplierFormDialog extends StatelessWidget {
         title,
         style: SupplierFonts.display(16.sp, w: FontWeight.w800),
       ),
-      content: SizedBox(
-        width: 400.w,
+      // Swapped SizedBox for Container with BoxConstraints
+      content: Container(
+        width: double.maxFinite,
+        constraints: BoxConstraints(maxWidth: 400.w),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1944,8 +1987,10 @@ class _TransactionDialog extends StatelessWidget {
           ),
         ],
       ),
-      content: SizedBox(
-        width: 340.w,
+      // Swapped SizedBox for Container with BoxConstraints
+      content: Container(
+        width: double.maxFinite,
+        constraints: BoxConstraints(maxWidth: 340.w),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

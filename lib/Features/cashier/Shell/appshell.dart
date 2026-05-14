@@ -10,11 +10,11 @@ import 'package:google_fonts/google_fonts.dart';
 // Core Imports
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
+
+// Feature Screens (Adjust these paths if your folder structure changes)
 import 'package:zaytouna_park/Features/admin/Widgets/Facilities/facilities.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
-
-// Feature Screens
 import 'package:zaytouna_park/Features/cashier/cash_home.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
@@ -25,8 +25,6 @@ import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart'
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
 import 'package:zaytouna_park/Features/kitchen/widgets/menu%20mangement/menumanagementscreen.dart';
-
-// ADDED: Import your Menu Management Screen here (adjust path if needed)
 
 // ─── CLEAN WHITE PALETTE ──────────────────────────────────────────────────────────
 class ShellColors {
@@ -46,17 +44,17 @@ class ShellColors {
 }
 
 enum NavTab {
-  orders,
-  facilities,
   dashboard,
   pos,
-  sales,
-  menu, // <--- ADDED MENU TAB
+  menu,
   inventory,
+  expenses,
+  facilities,
+  sales,
+  orders,
+  customers,
   categories,
   suppliers,
-  customers,
-  expenses,
   analytics,
   settings,
 }
@@ -65,59 +63,95 @@ class NavMeta {
   final NavTab tab;
   final IconData icon;
   final String label;
-  const NavMeta({required this.tab, required this.icon, required this.label});
+  final String routeName; // ADDED: To check permissions
+
+  const NavMeta({
+    required this.tab,
+    required this.icon,
+    required this.label,
+    required this.routeName,
+  });
 }
 
-// Complete Sidebar Menu Items
-const navItems = [
+// Map each tab to its required route so we can check permissions dynamically
+const _allNavItems = [
   NavMeta(
     tab: NavTab.dashboard,
     icon: Icons.grid_view_rounded,
     label: 'Dashboard',
+    routeName: Routes.home,
   ),
   NavMeta(
     tab: NavTab.pos,
     icon: Icons.point_of_sale_rounded,
     label: 'POS Terminal',
+    routeName: Routes.pos,
   ),
-  NavMeta(tab: NavTab.menu, icon: Icons.restaurant_menu_rounded, label: 'Menu'),
+  NavMeta(
+    tab: NavTab.menu,
+    icon: Icons.restaurant_menu_rounded,
+    label: 'Menu',
+    routeName: Routes.menu,
+  ),
   NavMeta(
     tab: NavTab.inventory,
     icon: Icons.inventory_2_rounded,
     label: 'Inventory',
+    routeName: Routes.inventory,
   ),
-
   NavMeta(
     tab: NavTab.expenses,
     icon: Icons.account_balance_wallet_rounded,
     label: 'Expenses',
+    routeName: Routes.expenses,
   ),
   NavMeta(
     tab: NavTab.facilities,
     icon: Icons.apartment_rounded,
     label: 'Facilities',
+    routeName: Routes.facilities,
   ),
-  NavMeta(tab: NavTab.sales, icon: Icons.attach_money_rounded, label: 'Sales'),
-  NavMeta(tab: NavTab.orders, icon: Icons.list_rounded, label: 'Orders'),
+  NavMeta(
+    tab: NavTab.sales,
+    icon: Icons.attach_money_rounded,
+    label: 'Sales',
+    routeName: Routes.sales,
+  ),
+  NavMeta(
+    tab: NavTab.orders,
+    icon: Icons.list_rounded,
+    label: 'Orders',
+    routeName: Routes.orders,
+  ),
   NavMeta(
     tab: NavTab.customers,
     icon: Icons.people_rounded,
     label: 'Customers',
+    routeName: Routes.customers,
   ),
   NavMeta(
     tab: NavTab.categories,
     icon: Icons.category_rounded,
     label: 'Categories',
+    routeName: Routes.categories,
   ),
   NavMeta(
     tab: NavTab.suppliers,
     icon: Icons.local_shipping_rounded,
     label: 'Suppliers',
+    routeName: Routes.suppliers,
+  ),
+  NavMeta(
+    tab: NavTab.analytics,
+    icon: Icons.insights_rounded,
+    label: 'Analytics',
+    routeName: Routes.reports,
   ),
   NavMeta(
     tab: NavTab.settings,
     icon: Icons.settings_rounded,
     label: 'Settings',
+    routeName: Routes.settings,
   ),
 ];
 
@@ -130,7 +164,30 @@ class CashierShellScreen extends StatefulWidget {
 }
 
 class _CashierShellScreenState extends State<CashierShellScreen> {
-  NavTab _activeTab = NavTab.dashboard;
+  late NavTab _activeTab;
+  late List<NavMeta> _allowedTabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _calculateAllowedTabs();
+  }
+
+  // Filter the tabs based on the current user's permissions
+  void _calculateAllowedTabs() {
+    _allowedTabs = _allNavItems.where((item) {
+      final requiredPerm = AppPermissions.requiredFor(item.routeName);
+      if (requiredPerm == null) return true; // Route is public to all staff
+      return RouteGuard.hasPermission(
+        requiredPerm,
+      ); // Check specific permission
+    }).toList();
+
+    // Default to the first allowed tab (usually Dashboard)
+    _activeTab = _allowedTabs.isNotEmpty
+        ? _allowedTabs.first.tab
+        : NavTab.dashboard;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,6 +196,7 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
       drawer: MediaQuery.of(context).size.width < 1024
           ? Drawer(
               child: _PremiumSidebar(
+                allowedTabs: _allowedTabs,
                 activeTab: _activeTab,
                 onTab: (t) {
                   Navigator.pop(context); // Close drawer on mobile
@@ -157,6 +215,7 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
             children: [
               if (isWide)
                 _PremiumSidebar(
+                  allowedTabs: _allowedTabs,
                   activeTab: _activeTab,
                   onTab: _handleTabSelection,
                   onLogout: () => _confirmLogout(context),
@@ -166,6 +225,7 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
                   children: [
                     _ShellHeader(
                       activeTab: _activeTab,
+                      allowedTabs: _allowedTabs,
                       isWide: isWide,
                       onMenuTap: () => Scaffold.of(context).openDrawer(),
                     ),
@@ -188,6 +248,7 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
                     ),
                     if (!isMedium)
                       _PremiumBottomNav(
+                        allowedTabs: _allowedTabs,
                         activeTab: _activeTab,
                         onTab: _handleTabSelection,
                       ),
@@ -203,6 +264,7 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
 
   void _handleTabSelection(NavTab tab) {
     if (tab == NavTab.pos) {
+      // POS should open in full screen on top of the shell
       Navigator.pushNamed(context, Routes.pos);
     } else {
       setState(() => _activeTab = tab);
@@ -216,10 +278,10 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
           onLaunchTerminal: () => Navigator.pushNamed(context, Routes.pos),
         );
       case NavTab.pos:
-        return const UpgradedPOS();
+        return const UpgradedPOS(); // Fallback, normally pushed over the shell
       case NavTab.sales:
         return const SalesScreen();
-      case NavTab.menu: // <--- ADDED SWITCH CASE
+      case NavTab.menu:
         return const MenuManagementScreen();
       case NavTab.inventory:
         return const InventoryScreen();
@@ -350,11 +412,13 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
 // ─── COMPONENTS ──────────────────────────────────────────────────────────────
 
 class _PremiumSidebar extends StatelessWidget {
+  final List<NavMeta> allowedTabs;
   final NavTab activeTab;
   final ValueChanged<NavTab> onTab;
   final VoidCallback onLogout;
 
   const _PremiumSidebar({
+    required this.allowedTabs,
     required this.activeTab,
     required this.onTab,
     required this.onLogout,
@@ -377,7 +441,7 @@ class _PremiumSidebar extends StatelessWidget {
             child: ListView(
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               physics: const BouncingScrollPhysics(),
-              children: navItems
+              children: allowedTabs
                   .map(
                     (item) => _SidebarItem(
                       meta: item,
@@ -501,11 +565,13 @@ class _SidebarItem extends StatelessWidget {
 }
 
 class _ShellHeader extends StatelessWidget {
+  final List<NavMeta> allowedTabs;
   final NavTab activeTab;
   final bool isWide;
   final VoidCallback onMenuTap;
 
   const _ShellHeader({
+    required this.allowedTabs,
     required this.activeTab,
     required this.isWide,
     required this.onMenuTap,
@@ -513,7 +579,11 @@ class _ShellHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final activeItem = navItems.firstWhere((e) => e.tab == activeTab);
+    // Safely get the active item name, fallback to 'Dashboard' if something goes wrong
+    final activeItemLabel = allowedTabs
+        .firstWhere((e) => e.tab == activeTab, orElse: () => _allNavItems.first)
+        .label;
+
     final user = RouteGuard.user;
 
     return Container(
@@ -539,7 +609,7 @@ class _ShellHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  activeItem.label,
+                  activeItemLabel,
                   style: GoogleFonts.inter(
                     fontSize: 24.sp,
                     fontWeight: FontWeight.w600,
@@ -685,25 +755,32 @@ class _SidebarLogout extends StatelessWidget {
 }
 
 class _PremiumBottomNav extends StatelessWidget {
+  final List<NavMeta> allowedTabs;
   final NavTab activeTab;
   final ValueChanged<NavTab> onTab;
 
-  const _PremiumBottomNav({required this.activeTab, required this.onTab});
+  const _PremiumBottomNav({
+    required this.allowedTabs,
+    required this.activeTab,
+    required this.onTab,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Filter to the 5 most important tabs for mobile
-    final mobileItems = navItems
-        .where(
-          (i) => [
-            NavTab.dashboard,
-            NavTab.pos,
-            NavTab.sales,
-            NavTab
-                .menu, // <--- Replaced Inventory with Menu on mobile layout for quick access
-            NavTab.analytics,
-          ].contains(i.tab),
-        )
+    // Determine the best tabs to show on mobile (max 5)
+    final preferredMobileTabs = [
+      NavTab.dashboard,
+      NavTab.pos,
+      NavTab.sales,
+      NavTab.menu,
+      NavTab.orders,
+      NavTab.analytics,
+    ];
+
+    // Only include tabs the user actually has permission to see
+    final mobileItems = allowedTabs
+        .where((i) => preferredMobileTabs.contains(i.tab))
+        .take(5) // Ensure it never overflows a standard mobile bottom nav
         .toList();
 
     return Container(

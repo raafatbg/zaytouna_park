@@ -514,81 +514,87 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               ),
             ],
           ),
-          content: SizedBox(
-            width: 340.w,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _DialogField(label: 'Title', ctrl: titleCtrl),
-                SizedBox(height: 12.h),
-                _DialogField(label: 'Description', ctrl: descCtrl),
-                SizedBox(height: 12.h),
-                _DialogField(
-                  label: 'Amount \$',
-                  ctrl: amountCtrl,
-                  isNumber: true,
-                ),
-                SizedBox(height: 12.h),
-                Text(
-                  'Category',
-                  style: ExpenseFonts.sans(
-                    9.sp,
-                    w: FontWeight.w600,
-                    color: textDim,
+          // FIX: Constrained box and SingleChildScrollView prevents keyboard overflow
+          content: Container(
+            width: double.maxFinite,
+            constraints: BoxConstraints(maxWidth: 340.w),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _DialogField(label: 'Title', ctrl: titleCtrl),
+                  SizedBox(height: 12.h),
+                  _DialogField(label: 'Description', ctrl: descCtrl),
+                  SizedBox(height: 12.h),
+                  _DialogField(
+                    label: 'Amount \$',
+                    ctrl: amountCtrl,
+                    isNumber: true,
                   ),
-                ),
-                SizedBox(height: 8.h),
-                Wrap(
-                  spacing: 8.w,
-                  runSpacing: 8.h,
-                  children: _categories
-                      .map(
-                        (c) => GestureDetector(
-                          onTap: () => set(() => selectedCategory = c.category),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 10.w,
-                              vertical: 6.h,
-                            ),
-                            decoration: BoxDecoration(
-                              color: selectedCategory == c.category
-                                  ? c.bgColor
-                                  : surface2,
-                              borderRadius: BorderRadius.circular(8.r),
-                              border: Border.all(
-                                color: selectedCategory == c.category
-                                    ? c.color
-                                    : border,
+                  SizedBox(height: 12.h),
+                  Text(
+                    'Category',
+                    style: ExpenseFonts.sans(
+                      9.sp,
+                      w: FontWeight.w600,
+                      color: textDim,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  Wrap(
+                    spacing: 8.w,
+                    runSpacing: 8.h,
+                    children: _categories
+                        .map(
+                          (c) => GestureDetector(
+                            onTap: () =>
+                                set(() => selectedCategory = c.category),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10.w,
+                                vertical: 6.h,
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  c.icon,
-                                  size: 14.sp,
+                              decoration: BoxDecoration(
+                                color: selectedCategory == c.category
+                                    ? c.bgColor
+                                    : surface2,
+                                borderRadius: BorderRadius.circular(8.r),
+                                border: Border.all(
                                   color: selectedCategory == c.category
                                       ? c.color
-                                      : textMuted,
+                                      : border,
                                 ),
-                                SizedBox(width: 4.w),
-                                Text(
-                                  c.title,
-                                  style: ExpenseFonts.sans(
-                                    10.sp,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    c.icon,
+                                    size: 14.sp,
                                     color: selectedCategory == c.category
                                         ? c.color
                                         : textMuted,
                                   ),
-                                ),
-                              ],
+                                  SizedBox(width: 4.w),
+                                  Text(
+                                    c.title,
+                                    style: ExpenseFonts.sans(
+                                      10.sp,
+                                      color: selectedCategory == c.category
+                                          ? c.color
+                                          : textMuted,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ],
+                        )
+                        .toList(),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -781,6 +787,9 @@ class _TopBarState extends State<_TopBar> {
 
   @override
   Widget build(BuildContext context) {
+    // FIX: Detect mobile size to hide certain elements
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Container(
       height: 64.h,
       padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -813,76 +822,77 @@ class _TopBarState extends State<_TopBar> {
             ),
           ),
           SizedBox(width: 16.w),
-          Row(
-            children: [
-              Container(
-                width: 36.w,
-                height: 36.w,
-                decoration: BoxDecoration(
-                  color: ExpenseColors.green,
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-                child: Icon(
-                  Icons.park_rounded,
-                  size: 22.sp,
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(width: 10.w),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'ZAYTOUNA PARK',
-                    style: ExpenseFonts.sans(
-                      8.sp,
-                      w: FontWeight.w700,
-                      color: ExpenseColors.green,
-                    ),
-                  ),
-                  Text(
-                    'Expenses',
-                    style: ExpenseFonts.sans(
-                      12.sp,
-                      w: FontWeight.w600,
-                      color: ExpenseColors.text,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const Spacer(),
           Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            width: 36.w,
+            height: 36.w,
             decoration: BoxDecoration(
-              color: ExpenseColors.surface2,
-              borderRadius: BorderRadius.circular(10.r),
+              color: ExpenseColors.green,
+              borderRadius: BorderRadius.circular(8.r),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Icon(Icons.park_rounded, size: 22.sp, color: Colors.white),
+          ),
+          SizedBox(width: 10.w),
+          // FIX: Wrap title column in Expanded
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 6.w,
-                  height: 6.w,
-                  decoration: const BoxDecoration(
-                    color: ExpenseColors.green,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                SizedBox(width: 8.w),
                 Text(
-                  '$_currentTime  ·  $_currentDate',
-                  style: ExpenseFonts.mono(
-                    10.sp,
-                    color: ExpenseColors.textSecondary,
+                  'ZAYTOUNA PARK',
+                  style: ExpenseFonts.sans(
+                    8.sp,
+                    w: FontWeight.w700,
+                    color: ExpenseColors.green,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'Expenses',
+                  style: ExpenseFonts.sans(
+                    12.sp,
+                    w: FontWeight.w600,
+                    color: ExpenseColors.text,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          SizedBox(width: 12.w),
+          // FIX: Hide Time & Date container on smaller mobile screens
+          if (!isMobile) ...[
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+              decoration: BoxDecoration(
+                color: ExpenseColors.surface2,
+                borderRadius: BorderRadius.circular(10.r),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6.w,
+                    height: 6.w,
+                    decoration: const BoxDecoration(
+                      color: ExpenseColors.green,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  Text(
+                    '$_currentTime  ·  $_currentDate',
+                    style: ExpenseFonts.mono(
+                      10.sp,
+                      color: ExpenseColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 12.w),
+          ],
           Container(
             width: 40.w,
             height: 40.w,
@@ -1521,26 +1531,31 @@ class _ExpenseRow extends StatelessWidget {
             ),
           ),
           SizedBox(width: 12.w),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '-\$${expense.amount.toStringAsFixed(2)}',
-                style: ExpenseFonts.mono(
-                  12.sp,
-                  w: FontWeight.w600,
-                  color: ExpenseColors.red,
+          // FIX: Ensuring large amounts do not overflow
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '-\$${expense.amount.toStringAsFixed(2)}',
+                  style: ExpenseFonts.mono(
+                    12.sp,
+                    w: FontWeight.w600,
+                    color: ExpenseColors.red,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              SizedBox(height: 2.h),
-              Text(
-                formatDate(expense.date),
-                style: ExpenseFonts.mono(
-                  9.sp,
-                  color: ExpenseColors.textSecondary,
+                SizedBox(height: 2.h),
+                Text(
+                  formatDate(expense.date),
+                  style: ExpenseFonts.mono(
+                    9.sp,
+                    color: ExpenseColors.textSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           SizedBox(width: 8.w),
           PopupMenuButton<String>(

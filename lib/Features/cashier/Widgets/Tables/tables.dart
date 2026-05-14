@@ -1,133 +1,245 @@
-// ignore_for_file: deprecated_member_use
+// lib/Features/Tables/floor_plan_screen.dart
+// Zaytouna POS - Floor Plan (View & Toggle Tables)
+
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, avoid_print
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class TablesPage extends StatefulWidget {
-  const TablesPage({super.key});
+class FloorPlanScreen extends StatefulWidget {
+  const FloorPlanScreen({super.key});
 
   @override
-  State<TablesPage> createState() => _TablesPageState();
+  State<FloorPlanScreen> createState() => _FloorPlanScreenState();
 }
 
-class _TablesPageState extends State<TablesPage> {
-  // Get the Supabase client instance
+class _FloorPlanScreenState extends State<FloorPlanScreen> {
   final _supabase = Supabase.instance.client;
+  List<Map<String, dynamic>> _tables = [];
+  bool _isLoading = true;
 
-  // Fetch tables from the database, ordered by name
-  Future<List<Map<String, dynamic>>> _fetchTables() async {
-    final response = await _supabase
-        .from('restaurant_tables')
-        .select()
-        .order('name', ascending: true);
-    return List<Map<String, dynamic>>.from(response);
+  @override
+  void initState() {
+    super.initState();
+    _fetchTables();
+  }
+
+  Future<void> _fetchTables() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await _supabase
+          .from('restaurant_tables')
+          .select()
+          .order('name', ascending: true);
+
+      if (mounted) {
+        setState(() {
+          _tables = List<Map<String, dynamic>>.from(response);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching tables: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Allow staff to quickly toggle table status
+  Future<void> _toggleTableStatus(
+    int id,
+    bool currentStatus,
+    String name,
+  ) async {
+    HapticFeedback.lightImpact();
+    final newStatus = !currentStatus;
+
+    // Optimistic UI update for instant feedback
+    setState(() {
+      final index = _tables.indexWhere((t) => t['id'] == id);
+      if (index != -1) _tables[index]['is_available'] = newStatus;
+    });
+
+    try {
+      await _supabase
+          .from('restaurant_tables')
+          .update({'is_available': newStatus})
+          .eq('id', id);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '$name marked as ${newStatus ? 'Available' : 'Occupied'}',
+          ),
+          backgroundColor: newStatus
+              ? const Color(0xFF10B981)
+              : const Color(0xFFEF4444),
+          duration: const Duration(seconds: 1),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      // Revert if failed
+      setState(() {
+        final index = _tables.indexWhere((t) => t['id'] == id);
+        if (index != -1) _tables[index]['is_available'] = currentStatus;
+      });
+      print('Error updating table: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Restaurant Floor'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'FLOOR PLAN',
+              style: GoogleFonts.inter(
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF8B6914),
+              ),
+            ),
+            Text(
+              'Live Seating Status',
+              style: GoogleFonts.inter(
+                fontSize: 18.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF212529),
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              // Force a rebuild to fetch fresh data
-              setState(() {});
-            },
+            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF6C757D)),
+            onPressed: _fetchTables,
           ),
+          SizedBox(width: 8.w),
         ],
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _fetchTables(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          final tables = snapshot.data ?? [];
-
-          if (tables.isEmpty) {
-            return const Center(child: Text('No tables found.'));
-          }
-
-          // A responsive grid that fits more columns on wider screens (tablets)
-          return GridView.builder(
-            padding: const EdgeInsets.all(16.0),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 200, // Max width of a table card
-              childAspectRatio: 1.0, // Square cards
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFFB8860B)),
+            )
+          : RefreshIndicator(
+              onRefresh: _fetchTables,
+              color: const Color(0xFFB8860B),
+              child: _tables.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No tables found. Please add tables in settings.',
+                        style: GoogleFonts.inter(color: Colors.grey),
+                      ),
+                    )
+                  : GridView.builder(
+                      padding: EdgeInsets.all(20.w),
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 220.w,
+                        childAspectRatio: 1.0,
+                        crossAxisSpacing: 16.w,
+                        mainAxisSpacing: 16.w,
+                      ),
+                      itemCount: _tables.length,
+                      itemBuilder: (context, index) {
+                        final table = _tables[index];
+                        return _buildTableCard(table);
+                      },
+                    ),
             ),
-            itemCount: tables.length,
-            itemBuilder: (context, index) {
-              final table = tables[index];
-              final isAvailable = table['is_available'] as bool;
-              final name = table['name'] as String;
-              final capacity = table['capacity'] as int?;
-
-              return _buildTableCard(name, capacity, isAvailable);
-            },
-          );
-        },
-      ),
     );
   }
 
-  Widget _buildTableCard(String name, int? capacity, bool isAvailable) {
-    // Dynamic styling based on table availability
-    final cardColor = isAvailable ? Colors.green.shade100 : Colors.red.shade100;
-    final iconColor = isAvailable ? Colors.green.shade800 : Colors.red.shade800;
-    final statusText = isAvailable ? 'Available' : 'Occupied';
+  Widget _buildTableCard(Map<String, dynamic> table) {
+    final id = table['id'] as int;
+    final name = table['name'] as String;
+    final capacity = table['capacity'] as int?;
+    final isAvailable = table['is_available'] as bool? ?? false;
 
-    return Card(
-      elevation: 4,
-      color: cardColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    // Green for available, Red for occupied
+    final bgColor = isAvailable
+        ? const Color(0xFFDCFCE7)
+        : const Color(0xFFFEE2E2);
+    final fgColor = isAvailable
+        ? const Color(0xFF10B981)
+        : const Color(0xFFEF4444);
+
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Tapped $name')));
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
+        onTap: () => _toggleTableStatus(id, isAvailable, name),
+        borderRadius: BorderRadius.circular(16.r),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: const Color(0xFFE9ECEF)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.table_restaurant, size: 40, color: iconColor),
-              const SizedBox(height: 8),
+              Container(
+                padding: EdgeInsets.all(12.w),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.table_restaurant_rounded,
+                  size: 32.sp,
+                  color: fgColor,
+                ),
+              ),
+              SizedBox(height: 12.h),
               Text(
                 name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                style: GoogleFonts.inter(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF212529),
                 ),
-                textAlign: TextAlign.center,
               ),
               if (capacity != null) ...[
-                const SizedBox(height: 4),
-                Text('Seats: $capacity', style: const TextStyle(fontSize: 14)),
+                SizedBox(height: 4.h),
+                Text(
+                  '$capacity Seats',
+                  style: GoogleFonts.inter(
+                    fontSize: 12.sp,
+                    color: const Color(0xFF6C757D),
+                  ),
+                ),
               ],
-              const Spacer(),
+              SizedBox(height: 12.h),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Text(
-                  statusText,
-                  style: TextStyle(
-                    color: iconColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                  isAvailable ? 'AVAILABLE' : 'OCCUPIED',
+                  style: GoogleFonts.inter(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w700,
+                    color: fgColor,
                   ),
                 ),
               ),

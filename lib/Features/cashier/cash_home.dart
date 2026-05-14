@@ -481,6 +481,26 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
+        Container(
+          margin: EdgeInsets.only(right: 16.w),
+          height: 52.w,
+          width: 52.w,
+          decoration: BoxDecoration(
+            color: ZaytounaColors.surfaceLight,
+            borderRadius: BorderRadius.circular(14.r),
+            border: Border.all(color: ZaytounaColors.border, width: 1),
+          ),
+          padding: EdgeInsets.all(8.w),
+          child: Image.asset(
+            'assets/logo/logo.ico',
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => Icon(
+              Icons.storefront_rounded,
+              color: ZaytounaColors.primary,
+              size: 28.sp,
+            ),
+          ),
+        ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -677,34 +697,33 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   }
 
   Widget _buildMenuGrid(BuildContext context) {
-    // ─── ADDED FLOOR PLAN AND MANAGE TABLES ───
-    final List<MenuTileData> menuTiles = [
+    final List<MenuTileData> allMenuTiles = [
       const MenuTileData(
         title: 'Menu',
         icon: Icons.restaurant_menu_rounded,
         iconColor: Colors.white,
         bgColor: ZaytounaColors.warning,
-        route: '/menu',
+        route: Routes.menu,
       ),
       const MenuTileData(
         title: 'Floor Plan',
         icon: Icons.table_restaurant_rounded,
         iconColor: Colors.white,
         bgColor: ZaytounaColors.primaryDark,
-        route: Routes.tables, // For Cashiers to view Tables
+        route: Routes.tables,
       ),
       const MenuTileData(
         title: 'Manage Tables',
         icon: Icons.edit_note_rounded,
         iconColor: Colors.white,
-        bgColor: Color(0xFF10B981), // Green
-        route: '/manage-tables', // For Admins to Add/Remove Tables
+        bgColor: Color(0xFF10B981),
+        route: Routes.manageTables,
       ),
       const MenuTileData(
         title: 'Inventory',
         icon: Icons.inventory_2_rounded,
         iconColor: Colors.white,
-        bgColor: Color(0xFF3B82F6), // Blue
+        bgColor: Color(0xFF3B82F6),
         route: Routes.inventory,
       ),
       const MenuTileData(
@@ -718,15 +737,15 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         title: 'Facilities',
         icon: Icons.apartment_rounded,
         iconColor: Colors.white,
-        bgColor: Color(0xFF8B5CF6), // Purple
-        route: '/facilities',
+        bgColor: Color(0xFF8B5CF6),
+        route: Routes.facilities,
       ),
       const MenuTileData(
         title: 'Sales',
         icon: Icons.attach_money_rounded,
         iconColor: Colors.white,
         bgColor: ZaytounaColors.success,
-        route: '/sales',
+        route: Routes.sales,
       ),
       const MenuTileData(
         title: 'Orders',
@@ -746,14 +765,14 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         title: 'Categories',
         icon: Icons.category_rounded,
         iconColor: Colors.white,
-        bgColor: Color(0xFF8B5CF6), // Purple
+        bgColor: Color(0xFF8B5CF6),
         route: Routes.categories,
       ),
       const MenuTileData(
         title: 'Suppliers',
         icon: Icons.local_shipping_rounded,
         iconColor: Colors.white,
-        bgColor: Color(0xFF6366F1), // Indigo
+        bgColor: Color(0xFF6366F1),
         route: Routes.suppliers,
       ),
       const MenuTileData(
@@ -767,10 +786,21 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         title: 'Settings',
         icon: Icons.settings_rounded,
         iconColor: Colors.white,
-        bgColor: Color(0xFF6C757D), // Grey
-        route: '/settings',
+        bgColor: Color(0xFF6C757D),
+        route: Routes.settings,
       ),
     ];
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // FILTER LOGIC: Ensure we only show tiles the user is authorized to see
+    // ─────────────────────────────────────────────────────────────────────────
+    final List<MenuTileData> allowedTiles = allMenuTiles.where((tile) {
+      final requiredPerm = AppPermissions.requiredFor(tile.route);
+      if (requiredPerm == null) return true; // Public route, everyone sees it
+      return RouteGuard.hasPermission(
+        requiredPerm,
+      ); // Check specific permission
+    }).toList();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -788,8 +818,8 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
             mainAxisSpacing: 12.h,
             childAspectRatio: 1.0,
           ),
-          itemCount: menuTiles.length,
-          itemBuilder: (_, i) => _buildMenuTile(menuTiles[i]),
+          itemCount: allowedTiles.length,
+          itemBuilder: (_, i) => _buildMenuTile(allowedTiles[i]),
         );
       },
     );

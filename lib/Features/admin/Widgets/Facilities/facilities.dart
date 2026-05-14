@@ -132,47 +132,67 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
   }
 
   Widget _buildHeader() {
+    // Check if the screen is too narrow to show the full button text
+    final isMobile = MediaQuery.of(context).size.width < 500;
+
     return Container(
       padding: EdgeInsets.fromLTRB(24.w, 48.h, 24.w, 20.h),
       color: Colors.white,
       child: Row(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'FACILITIES',
-                style: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF22C55E),
+          // FIX: Wrap titles in Expanded to prevent horizontal overflow
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'FACILITIES',
+                  style: GoogleFonts.inter(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF22C55E),
+                  ),
                 ),
-              ),
-              Text(
-                'Park Areas & Assets',
-                style: GoogleFonts.dmSerifDisplay(
-                  fontSize: 22.sp,
-                  fontWeight: FontWeight.bold,
+                Text(
+                  'Park Areas & Assets',
+                  style: GoogleFonts.dmSerifDisplay(
+                    fontSize: 22.sp,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          ElevatedButton.icon(
-            onPressed: _showAddDialog,
-            icon: const Icon(Icons.add_rounded, color: Colors.white),
-            label: Text(
-              'New Facility',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+              ],
             ),
+          ),
+          SizedBox(width: 12.w),
+          // FIX: Responsive Button - drops text on small mobile screens
+          ElevatedButton(
+            onPressed: _showAddDialog,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF22C55E),
               foregroundColor: Colors.white,
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 12.w : 20.w,
+                vertical: 12.h,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10.r),
               ),
               elevation: 0,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.add_rounded, color: Colors.white),
+                if (!isMobile) ...[
+                  SizedBox(width: 8.w),
+                  Text(
+                    'New Facility',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -190,15 +210,29 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
       );
     }
 
+    // FIX: Dynamic Column Count & Aspect Ratio based on screen width
+    final width = MediaQuery.of(context).size.width;
+    int crossAxisCount = 1;
+    double aspectRatio = 2.5; // Wider cards for mobile list view
+
+    if (width > 1100) {
+      crossAxisCount = 4;
+      aspectRatio = 1.1;
+    } else if (width > 800) {
+      crossAxisCount = 3;
+      aspectRatio = 1.1;
+    } else if (width > 550) {
+      crossAxisCount = 2;
+      aspectRatio = 1.2;
+    }
+
     return GridView.builder(
       padding: EdgeInsets.all(24.w),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: MediaQuery.of(context).size.width > 1100
-            ? 4
-            : (MediaQuery.of(context).size.width > 700 ? 3 : 2),
+        crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16.w,
         mainAxisSpacing: 16.h,
-        childAspectRatio: 1.1,
+        childAspectRatio: aspectRatio,
       ),
       itemCount: _facilities.length,
       itemBuilder: (context, index) {
@@ -260,18 +294,26 @@ class _FacilityCard extends StatelessWidget {
           Text(
             facility.typeName,
             style: GoogleFonts.inter(color: Colors.grey, fontSize: 11.sp),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis, // Prevents overflow on long types
           ),
           const Divider(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _InfoItem(
-                label: 'CAPACITY',
-                value: '${facility.capacity ?? "∞"}',
+              // Wrap inside expanded to prevent bottom row overflow
+              Expanded(
+                child: _InfoItem(
+                  label: 'CAPACITY',
+                  value: '${facility.capacity ?? "∞"}',
+                ),
               ),
-              _InfoItem(
-                label: 'PRICE/HR',
-                value: '\$${facility.pricePerHour.toStringAsFixed(0)}',
+              Expanded(
+                child: _InfoItem(
+                  label: 'PRICE/HR',
+                  value: '\$${facility.pricePerHour.toStringAsFixed(0)}',
+                  alignRight: true,
+                ),
               ),
             ],
           ),
@@ -310,12 +352,19 @@ class _StatusBadge extends StatelessWidget {
 
 class _InfoItem extends StatelessWidget {
   final String label, value;
-  const _InfoItem({required this.label, required this.value});
+  final bool alignRight;
+  const _InfoItem({
+    required this.label,
+    required this.value,
+    this.alignRight = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: alignRight
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -331,6 +380,8 @@ class _InfoItem extends StatelessWidget {
             fontSize: 12.sp,
             fontWeight: FontWeight.bold,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -390,8 +441,10 @@ class _AddFacilityDialogState extends State<_AddFacilityDialog> {
         'Add New Area',
         style: GoogleFonts.dmSerifDisplay(color: const Color(0xFF1A1D26)),
       ),
-      content: SizedBox(
-        width: 400.w,
+      // FIX: Use BoxConstraints instead of fixed width so it shrinks on mobile
+      content: Container(
+        width: double.maxFinite,
+        constraints: BoxConstraints(maxWidth: 400.w),
         child: Form(
           key: _formKey,
           child: Column(
@@ -401,6 +454,7 @@ class _AddFacilityDialogState extends State<_AddFacilityDialog> {
                 decoration: _inputStyle('Category / Type'),
                 dropdownColor: Colors.white,
                 iconEnabledColor: const Color(0xFF22C55E),
+                isExpanded: true, // Prevents text overflow inside dropdown
                 items: widget.types
                     .map(
                       (t) => DropdownMenuItem(
@@ -410,6 +464,7 @@ class _AddFacilityDialogState extends State<_AddFacilityDialog> {
                           style: GoogleFonts.inter(
                             color: const Color(0xFF1A1D26),
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     )

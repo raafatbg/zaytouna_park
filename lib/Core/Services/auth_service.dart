@@ -2,9 +2,10 @@
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class AuthException implements Exception {
+// RENAME: Changed to AppAuthException to prevent collision with Supabase's native AuthException
+class AppAuthException implements Exception {
   final String message;
-  AuthException(this.message);
+  AppAuthException(this.message);
 
   @override
   String toString() => message;
@@ -14,7 +15,7 @@ class AuthService {
   final _supabase = Supabase.instance.client;
 
   /// Staff Login (email/password via Supabase Auth)
-  /// Returns: {'user': AuthUser, 'staff': StaffData, 'role': 'admin'|'cashier'|'kitchen'}
+  /// Returns: {'success': bool, 'user': AuthUser, 'staff': StaffData, 'role': String}
   Future<Map<String, dynamic>> staffLogin(String email, String password) async {
     try {
       // Step 1: Authenticate with Supabase Auth
@@ -24,31 +25,31 @@ class AuthService {
       );
 
       if (authResponse.user == null) {
-        throw AuthException(
+        throw AppAuthException(
           'Authentication failed. Please check your credentials.',
         );
       }
 
-      // Step 2: Get staff details from database
-      final staffList = await _supabase
+      // Step 2: Get staff details from database using the secure Auth UID
+      // using maybeSingle() instead of returning a list and getting [0]
+      final staff = await _supabase
           .from('staff')
           .select('*, roles(name, description)')
-          .eq('email', email.trim());
+          .eq('id', authResponse.user!.id)
+          .maybeSingle();
 
-      if (staffList.isEmpty) {
-        // Sign out if staff record doesn't exist
+      if (staff == null) {
+        // Sign out if staff record doesn't exist in the public schema
         await _supabase.auth.signOut();
-        throw AuthException(
+        throw AppAuthException(
           'Staff record not found. Contact your administrator.',
         );
       }
 
-      final staff = staffList[0];
-
       // Step 3: Check if staff is active
       if (staff['is_active'] != true) {
         await _supabase.auth.signOut();
-        throw AuthException(
+        throw AppAuthException(
           'This account is inactive. Contact your administrator.',
         );
       }
@@ -56,38 +57,43 @@ class AuthService {
       // Step 4: Extract role (safely handling map or list from join)
       final roleData = staff['roles'];
       String roleName = 'cashier';
+
       if (roleData is Map) {
         roleName = roleData['name'] ?? 'cashier';
       } else if (roleData is List && roleData.isNotEmpty) {
-        roleName = roleData[0]['name'] ?? 'cashier';
+        roleName = roleData.first['name'] ?? 'cashier';
       }
 
-      // Validate role
-      if (!['admin', 'cashier', 'kitchen'].contains(roleName)) {
+      // Validate role - Expanded to match the roles used in your RouteGuard
+      final validRoles = [
+        'admin',
+        'manager',
+        'cashier',
+        'kitchen',
+        'chef',
+        'waiter',
+      ];
+      if (!validRoles.contains(roleName.toLowerCase())) {
         await _supabase.auth.signOut();
-        throw AuthException('Invalid staff role. Contact your administrator.');
+        throw AppAuthException(
+          'Invalid staff role configuration. Contact your administrator.',
+        );
       }
 
       return {
         'success': true,
         'user': authResponse.user,
         'staff': staff,
-        'role': roleName,
+        'role': roleName.toLowerCase(),
         'staffId': staff['id'],
-        'staffName': staff['name'],
+        'staffName': staff['name'] ?? 'Staff Member',
       };
-    } on AuthException {
-      rethrow;
-    } on AuthApiException catch (e) {
-      if (e.statusCode == '400') {
-        throw AuthException('Invalid email or password.');
-      } else if (e.statusCode == '401') {
-        throw AuthException('Unauthorized. Please check your credentials.');
-      } else {
-        throw AuthException('Authentication error: ${e.message}');
-      }
+    } on AuthException catch (e) {
+      // This specifically catches Supabase's native authentication errors (e.g. wrong password)
+      throw AppAuthException(e.message);
     } catch (e) {
-      throw AuthException('Login failed: ${e.toString()}');
+      if (e is AppAuthException) rethrow; // Pass our custom exceptions through
+      throw AppAuthException('Login failed: ${e.toString()}');
     }
   }
 
@@ -98,7 +104,7 @@ class AuthService {
       phone = phone.trim();
 
       if (name.isEmpty || phone.isEmpty) {
-        throw AuthException('Name and phone are required');
+        throw AppAuthException('Name and phone are required');
       }
 
       // Check if customer already exists
@@ -131,7 +137,7 @@ class AuthService {
         'customerId': newCustomer['id'],
       };
     } catch (e) {
-      throw AuthException('Customer login failed: ${e.toString()}');
+      throw AppAuthException('Customer login failed: ${e.toString()}');
     }
   }
 
@@ -140,7 +146,7 @@ class AuthService {
     try {
       await _supabase.auth.signOut();
     } catch (e) {
-      throw AuthException('Logout failed: ${e.toString()}');
+      throw AppAuthException('Logout failed: ${e.toString()}');
     }
   }
 
@@ -150,23 +156,25 @@ class AuthService {
       final authUser = _supabase.auth.currentUser;
       if (authUser == null) return null;
 
-      final staffList = await _supabase
+      // Use the secure UID instead of email string matching
+      final staff = await _supabase
           .from('staff')
           .select('*, roles(name)')
-          .eq('email', authUser.email!);
+          .eq('id', authUser.id)
+          .maybeSingle();
 
-      if (staffList.isEmpty) return null;
+      if (staff == null) return null;
 
-      final staff = staffList[0];
       final roleData = staff['roles'];
       String roleName = 'cashier';
+
       if (roleData is Map) {
         roleName = roleData['name'] ?? 'cashier';
       } else if (roleData is List && roleData.isNotEmpty) {
-        roleName = roleData[0]['name'] ?? 'cashier';
+        roleName = roleData.first['name'] ?? 'cashier';
       }
 
-      return {...staff, 'role': roleName};
+      return {...staff, 'role': roleName.toLowerCase()};
     } catch (e) {
       print('Error getting current staff user: $e');
       return null;
@@ -183,7 +191,7 @@ class AuthService {
     try {
       return await _supabase.from('roles').select();
     } catch (e) {
-      throw AuthException('Failed to fetch roles: ${e.toString()}');
+      throw AppAuthException('Failed to fetch roles: ${e.toString()}');
     }
   }
 }

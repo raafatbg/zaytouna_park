@@ -843,6 +843,9 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Hide title on small screens to prevent overflow
+    final showTitle = MediaQuery.of(context).size.width > 600;
+
     return Container(
       height: 64.h,
       padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -872,70 +875,76 @@ class _TopBar extends StatelessWidget {
               color: Colors.white,
             ),
           ),
-          SizedBox(width: 12.w),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'CUSTOMERS',
-                style: CustomerFonts.sans(
-                  8.sp,
-                  w: FontWeight.w700,
-                  color: CustomerColors.blue,
-                ),
-              ),
-              Text(
-                'Client Management',
-                style: CustomerFonts.display(16.sp, w: FontWeight.w700),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Container(
-            width: 240.w,
-            height: 40.h,
-            padding: EdgeInsets.symmetric(horizontal: 12.w),
-            decoration: BoxDecoration(
-              color: CustomerColors.surface2,
-              borderRadius: BorderRadius.circular(10.r),
-              border: Border.all(color: CustomerColors.border),
-            ),
-            child: Row(
+          if (showTitle) ...[
+            SizedBox(width: 12.w),
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.search_rounded,
-                  size: 18.sp,
-                  color: CustomerColors.textSecondary,
-                ),
-                SizedBox(width: 8.w),
-                Expanded(
-                  child: TextField(
-                    controller: searchCtrl,
-                    style: CustomerFonts.sans(12.sp),
-                    decoration: InputDecoration(
-                      hintText: 'Search customers...',
-                      hintStyle: CustomerFonts.sans(
-                        11.sp,
-                        color: CustomerColors.textMuted,
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(vertical: 10.h),
-                    ),
-                    cursorColor: CustomerColors.blue,
+                Text(
+                  'CUSTOMERS',
+                  style: CustomerFonts.sans(
+                    8.sp,
+                    w: FontWeight.w700,
+                    color: CustomerColors.blue,
                   ),
                 ),
-                if (searchCtrl.text.isNotEmpty)
-                  GestureDetector(
-                    onTap: () => searchCtrl.clear(),
-                    child: Icon(
-                      Icons.close_rounded,
-                      size: 16.sp,
-                      color: CustomerColors.textSecondary,
-                    ),
-                  ),
+                Text(
+                  'Client Management',
+                  style: CustomerFonts.display(16.sp, w: FontWeight.w700),
+                ),
               ],
+            ),
+          ],
+          const Spacer(),
+          // Use Flexible to prevent the search bar from causing a RenderFlex overflow
+          Flexible(
+            flex: 2,
+            child: Container(
+              constraints: BoxConstraints(maxWidth: 240.w),
+              height: 40.h,
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              decoration: BoxDecoration(
+                color: CustomerColors.surface2,
+                borderRadius: BorderRadius.circular(10.r),
+                border: Border.all(color: CustomerColors.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.search_rounded,
+                    size: 18.sp,
+                    color: CustomerColors.textSecondary,
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: TextField(
+                      controller: searchCtrl,
+                      style: CustomerFonts.sans(12.sp),
+                      decoration: InputDecoration(
+                        hintText: 'Search...',
+                        hintStyle: CustomerFonts.sans(
+                          11.sp,
+                          color: CustomerColors.textMuted,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(vertical: 10.h),
+                      ),
+                      cursorColor: CustomerColors.blue,
+                    ),
+                  ),
+                  if (searchCtrl.text.isNotEmpty)
+                    GestureDetector(
+                      onTap: () => searchCtrl.clear(),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 16.sp,
+                        color: CustomerColors.textSecondary,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           SizedBox(width: 12.w),
@@ -959,15 +968,17 @@ class _TopBar extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.add_rounded, size: 18.sp, color: Colors.white),
-                  SizedBox(width: 6.w),
-                  Text(
-                    'Add Customer',
-                    style: CustomerFonts.sans(
-                      12.sp,
-                      w: FontWeight.w600,
-                      color: Colors.white,
+                  if (showTitle) ...[
+                    SizedBox(width: 6.w),
+                    Text(
+                      'Add Customer',
+                      style: CustomerFonts.sans(
+                        12.sp,
+                        w: FontWeight.w600,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -1486,6 +1497,7 @@ class _TableRowState extends State<_TableRow> {
                     10.sp,
                     color: CustomerColors.textSecondary,
                   ),
+                  overflow: TextOverflow.ellipsis, // Added overflow
                 ),
               ),
               SizedBox(
@@ -1497,6 +1509,7 @@ class _TableRowState extends State<_TableRow> {
                     w: FontWeight.w600,
                     color: CustomerColors.blue,
                   ),
+                  overflow: TextOverflow.ellipsis, // Added overflow
                 ),
               ),
               SizedBox(
@@ -1508,6 +1521,7 @@ class _TableRowState extends State<_TableRow> {
                     w: FontWeight.w600,
                     color: CustomerColors.green,
                   ),
+                  overflow: TextOverflow.ellipsis, // Added overflow
                 ),
               ),
               SizedBox(
@@ -1530,6 +1544,7 @@ class _TableRowState extends State<_TableRow> {
                         w: FontWeight.w600,
                         color: balColor,
                       ),
+                      overflow: TextOverflow.ellipsis, // Added overflow
                     ),
                   ),
                 ),
@@ -1871,7 +1886,14 @@ class _DetailRow extends StatelessWidget {
       children: [
         Icon(icon, size: 16.sp, color: CustomerColors.textSecondary),
         SizedBox(width: 10.w),
-        Text(label, style: CustomerFonts.sans(12.sp)),
+        // Added Expanded and TextOverflow to prevent long email/phone overflow
+        Expanded(
+          child: Text(
+            label,
+            style: CustomerFonts.sans(12.sp),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }
@@ -2122,8 +2144,10 @@ class _CustomerFormDialog extends StatelessWidget {
         isEdit ? 'Edit Customer' : 'Add New Customer',
         style: CustomerFonts.display(16.sp, w: FontWeight.w800),
       ),
-      content: SizedBox(
-        width: 320.w,
+      // Changed SizedBox to Container with BoxConstraints for flexible narrow screens
+      content: Container(
+        width: double.maxFinite,
+        constraints: BoxConstraints(maxWidth: 320.w),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2286,8 +2310,10 @@ class _LedgerDialog extends StatelessWidget {
           ),
         ],
       ),
-      content: SizedBox(
-        width: 300.w,
+      // Changed SizedBox to Container with BoxConstraints for flexible narrow screens
+      content: Container(
+        width: double.maxFinite,
+        constraints: BoxConstraints(maxWidth: 300.w),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

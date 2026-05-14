@@ -594,7 +594,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  TOP BAR
+//  TOP BAR (FIXED FOR RESPONSIVENESS)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
@@ -602,6 +602,8 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showTitle = MediaQuery.of(context).size.width > 600;
+
     return Container(
       height: 64.h,
       padding: EdgeInsets.symmetric(horizontal: 20.w),
@@ -616,23 +618,22 @@ class _TopBar extends StatelessWidget {
           ),
         ],
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            Container(
-              width: 40.w,
-              height: 40.w,
-              decoration: BoxDecoration(
-                color: AnalyticsColors.blue,
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              child: Icon(
-                Icons.insights_rounded,
-                size: 20.sp,
-                color: Colors.white,
-              ),
+      child: Row(
+        children: [
+          Container(
+            width: 40.w,
+            height: 40.w,
+            decoration: BoxDecoration(
+              color: AnalyticsColors.blue,
+              borderRadius: BorderRadius.circular(10.r),
             ),
+            child: Icon(
+              Icons.insights_rounded,
+              size: 20.sp,
+              color: Colors.white,
+            ),
+          ),
+          if (showTitle) ...[
             SizedBox(width: 12.w),
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -652,54 +653,59 @@ class _TopBar extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(width: 20.w),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-              decoration: BoxDecoration(
-                color: AnalyticsColors.surface2,
-                borderRadius: BorderRadius.circular(10.r),
-              ),
+          ],
+          const Spacer(),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+            decoration: BoxDecoration(
+              color: AnalyticsColors.surface2,
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 14.sp,
+                  color: AnalyticsColors.textSecondary,
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  DateTime.now().toString().split(' ')[0],
+                  style: AnalyticsFonts.mono(
+                    11.sp,
+                    color: AnalyticsColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: showTitle ? 12.w : 8.w,
+              vertical: 8.h,
+            ),
+            decoration: BoxDecoration(
+              color: AnalyticsColors.green,
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            child: GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Report downloaded successfully!'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
               child: Row(
                 children: [
                   Icon(
-                    Icons.calendar_today_rounded,
+                    Icons.download_rounded,
                     size: 14.sp,
-                    color: AnalyticsColors.textSecondary,
+                    color: Colors.white,
                   ),
-                  SizedBox(width: 8.w),
-                  Text(
-                    DateTime.now().toString().split(' ')[0],
-                    style: AnalyticsFonts.mono(
-                      11.sp,
-                      color: AnalyticsColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-              decoration: BoxDecoration(
-                color: AnalyticsColors.green,
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-              child: GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Report downloaded successfully!'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                },
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.download_rounded,
-                      size: 14.sp,
-                      color: Colors.white,
-                    ),
+                  if (showTitle) ...[
                     SizedBox(width: 6.w),
                     Text(
                       'Export',
@@ -710,24 +716,24 @@ class _TopBar extends StatelessWidget {
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
             ),
-            SizedBox(width: 10.w),
-            CircleAvatar(
-              radius: 18.r,
-              backgroundColor: AnalyticsColors.blueLight,
-              child: Text(
-                'S',
-                style: TextStyle(
-                  color: AnalyticsColors.blue,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14.sp,
-                ),
+          ),
+          SizedBox(width: 10.w),
+          CircleAvatar(
+            radius: 18.r,
+            backgroundColor: AnalyticsColors.blueLight,
+            child: Text(
+              'S',
+              style: TextStyle(
+                color: AnalyticsColors.blue,
+                fontWeight: FontWeight.bold,
+                fontSize: 14.sp,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1462,7 +1468,7 @@ class _DonutChartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2;
-    final strokeWidth = 20.0;
+    const strokeWidth = 20.0;
 
     final total = categories.fold(0.0, (sum, cat) => sum + cat.amount);
     if (total == 0) return;
@@ -1495,7 +1501,7 @@ class _DonutChartPainter extends CustomPainter {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  TOP PERFORMING ITEMS
+//  TOP PERFORMING ITEMS (FIXED TEXT OVERFLOWS)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TopPerformingItems extends StatelessWidget {
@@ -1589,6 +1595,7 @@ class _TopPerformingItems extends StatelessWidget {
                         w: FontWeight.w600,
                         color: AnalyticsColors.textDim,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Expanded(
@@ -1599,6 +1606,7 @@ class _TopPerformingItems extends StatelessWidget {
                         w: FontWeight.w600,
                         color: AnalyticsColors.textDim,
                       ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Expanded(
@@ -1610,6 +1618,7 @@ class _TopPerformingItems extends StatelessWidget {
                         color: AnalyticsColors.textDim,
                       ),
                       textAlign: TextAlign.right,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -1654,12 +1663,16 @@ class _TopPerformingItems extends StatelessWidget {
                           11.sp,
                           color: AnalyticsColors.textSecondary,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Expanded(
                       child: Text(
                         '\$${item.revenue.toStringAsFixed(0)}',
                         style: AnalyticsFonts.mono(11.sp, w: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Expanded(
@@ -1676,13 +1689,18 @@ class _TopPerformingItems extends StatelessWidget {
                                 : AnalyticsColors.red,
                           ),
                           SizedBox(width: 2.w),
-                          Text(
-                            '${item.growth.abs().toStringAsFixed(1)}%',
-                            style: AnalyticsFonts.mono(
-                              10.sp,
-                              color: isPositive
-                                  ? AnalyticsColors.green
-                                  : AnalyticsColors.red,
+                          Expanded(
+                            child: Text(
+                              '${item.growth.abs().toStringAsFixed(1)}%',
+                              style: AnalyticsFonts.mono(
+                                10.sp,
+                                color: isPositive
+                                    ? AnalyticsColors.green
+                                    : AnalyticsColors.red,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.right,
                             ),
                           ),
                         ],
