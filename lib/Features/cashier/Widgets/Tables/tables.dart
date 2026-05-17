@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zaytouna_park/Core/Routers/routes.dart';
 
 class FloorPlanScreen extends StatefulWidget {
   const FloorPlanScreen({super.key});
@@ -95,6 +96,14 @@ class _FloorPlanScreenState extends State<FloorPlanScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF6C757D)),
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            Routes.cashierDashboard,
+            (r) => false,
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         title: Column(

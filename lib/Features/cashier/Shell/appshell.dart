@@ -228,6 +228,7 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
                       allowedTabs: _allowedTabs,
                       isWide: isWide,
                       onMenuTap: () => Scaffold.of(context).openDrawer(),
+                      onBackToDashboard: () => setState(() => _activeTab = NavTab.dashboard),
                     ),
                     Expanded(
                       child: AnimatedSwitcher(
@@ -569,12 +570,14 @@ class _ShellHeader extends StatelessWidget {
   final NavTab activeTab;
   final bool isWide;
   final VoidCallback onMenuTap;
+  final VoidCallback? onBackToDashboard;
 
   const _ShellHeader({
     required this.allowedTabs,
     required this.activeTab,
     required this.isWide,
     required this.onMenuTap,
+    this.onBackToDashboard,
   });
 
   @override
@@ -604,6 +607,18 @@ class _ShellHeader extends StatelessWidget {
             ),
             SizedBox(width: 8.w),
           ],
+          // Show Back button when not on dashboard
+          if (activeTab != NavTab.dashboard)
+            IconButton(
+              onPressed: onBackToDashboard ?? () {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  Routes.cashierDashboard,
+                  (r) => false,
+                );
+              },
+              icon: const Icon(Icons.arrow_back_rounded, color: ShellColors.textSecondary),
+            ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,7 +1,7 @@
 // lib/Features/Expenses/expenses_screen.dart
 // Zaytouna POS - Expenses Screen (Connected to Supabase)
 
-// ignore_for_file: deprecated_member_use, avoid_print, use_build_context_synchronously
+// ignore_for_file: deprecated_member_use, avoid_print, use_build_context_synchronously, unused_element
 
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -395,15 +395,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   }
 
   // Computed properties
-  double get _totalExpenses => _expenses.fold(0, (s, e) => s + e.amount);
-  double get _monthlyExpenses => _expenses
-      .where(
-        (e) =>
-            e.date.month == DateTime.now().month &&
-            e.date.year == DateTime.now().year,
-      )
-      .fold(0, (s, e) => s + e.amount);
-  int get _expenseCount => _expenses.length;
 
   @override
   Widget build(BuildContext context) {
@@ -423,20 +414,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const _WelcomeHeader(),
-                            SizedBox(height: 24.h),
-                            _SummaryCards(
-                              totalExpenses: _totalExpenses,
-                              monthlyExpenses: _monthlyExpenses,
-                              expenseCount: _expenseCount,
-                              constraints: constraints,
-                            ),
-                            SizedBox(height: 24.h),
+                            SizedBox(height: 8.h),
                             _CategoriesSection(
                               categories: _categories,
                               selectedCategory: _filterCategory,
-                              onCategorySelected: (c) =>
-                                  _updateFilters(category: c),
+                              onCategorySelected: (c) => _updateFilters(category: c),
                               constraints: constraints,
                             ),
                             SizedBox(height: 24.h),
@@ -472,10 +454,11 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                             SizedBox(height: 32.h),
                           ],
                         ),
-                      ),
                     ),
-                  ],
+                    ),
+                    ],
                 );
+
               },
             ),
     );

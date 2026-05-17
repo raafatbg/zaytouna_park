@@ -11,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
+import 'package:zaytouna_park/Core/Routers/routes.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  LIGHT THEME PALETTE (Matching Home Page & Expenses Page)
@@ -475,7 +476,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     child: Row(
       children: [
         GestureDetector(
-          onTap: () => Navigator.pop(context),
+          onTap: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            Routes.cashierDashboard,
+            (r) => false,
+          ),
           child: Container(
             width: 40.w,
             height: 40.w,

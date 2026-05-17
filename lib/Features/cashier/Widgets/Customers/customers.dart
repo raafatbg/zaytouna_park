@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zaytouna_park/Core/Routers/routes.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  LIGHT THEME PALETTE (Matching Inventory/Expenses)
@@ -862,6 +863,18 @@ class _TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // Back to Dashboard
+          IconButton(
+            onPressed: () => Navigator.pushNamedAndRemoveUntil(
+              context,
+              Routes.cashierDashboard,
+              (r) => false,
+            ),
+            icon: Icon(
+              Icons.arrow_back_rounded,
+              color: CustomerColors.textSecondary,
+            ),
+          ),
           Container(
             width: 40.w,
             height: 40.w,

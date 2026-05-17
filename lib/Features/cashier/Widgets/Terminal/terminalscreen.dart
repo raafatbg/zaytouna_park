@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 // Ensure these imports match your actual file structure
 import 'package:zaytouna_park/Features/cashier/Utils/receipt_printer.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
+import 'package:zaytouna_park/Core/Routers/routes.dart';
 
 // ─── CONSTANTS & HELPERS ──────────────────────────────────────────────
 const Color ZAYTOUNA_GREEN = Color(0xFF22C55E);
@@ -712,13 +713,26 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Order Settings",
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade500,
-            ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  Routes.cashierDashboard,
+                  (r) => false,
+                ),
+                icon: const Icon(Icons.arrow_back_rounded, color: Colors.grey),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "Order Settings",
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           Row(
