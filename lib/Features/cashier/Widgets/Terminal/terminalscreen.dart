@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously, constant_identifier_names
 
+import 'dart:ui'; // Required for PointerDeviceKind (mouse dragging)
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,9 +11,12 @@ import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
 
 // ─── CONSTANTS & HELPERS ──────────────────────────────────────────────
-const Color ZAYTOUNA_GREEN = Color(0xFF22C55E);
-const Color ZAYTOUNA_BLUE = Color(0xFF1E40AF);
-const Color BG_COLOR = Color(0xFFF1F5F9);
+const Color ZAYTOUNA_GREEN = Color(0xFF10B981); // Modern Emerald Green
+const Color ZAYTOUNA_BLUE = Color(
+  0xFF0F172A,
+); // Deep Slate/Blue for a premium look
+const Color BG_COLOR = Color(0xFFF8FAFC); // Soft Slate Background
+const Color SURFACE_COLOR = Colors.white;
 
 int roundToNearest5000(num amount) {
   return ((amount / 5000).round() * 5000);
@@ -123,8 +127,7 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
   PosCategory? _selectedCategory;
   PosCustomer? _selectedCustomer;
   PosOrderType? _selectedOrderType;
-  PosFacility?
-  _selectedFacility; // Used if a facility is booked, but hidden from the top bar
+  PosFacility? _selectedFacility;
   PosTable? _selectedTable;
 
   PosView _currentView = PosView.menu;
@@ -598,9 +601,14 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
   void _showToast(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
+        content: Text(
+          msg,
+          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+        ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
@@ -621,12 +629,12 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
                     flex: 4,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: SURFACE_COLOR,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: const Offset(2, 0),
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 15,
+                            offset: const Offset(4, 0),
                           ),
                         ],
                       ),
@@ -635,23 +643,23 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
                           if (widget.editOrderId != null)
                             Container(
                               width: double.infinity,
-                              color: Colors.orange.shade100,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              color: Colors.amber.shade100,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    Icons.edit_note,
-                                    color: Colors.orange.shade800,
-                                    size: 18,
+                                    Icons.edit_note_rounded,
+                                    color: Colors.amber.shade800,
+                                    size: 20,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
                                     "EDITING ORDER #${widget.editOrderId}",
                                     style: GoogleFonts.inter(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.orange.shade800,
-                                      letterSpacing: 1.2,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.amber.shade900,
+                                      letterSpacing: 1.5,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -700,14 +708,14 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
     );
   }
 
-  // ─── UPDATED: ONLY SHOWS TABLE SELECTOR ───
+  // ─── TOP ACTION TOOLBAR ───
   Widget _buildTopActionToolbar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: SURFACE_COLOR,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200, width: 2),
+          bottom: BorderSide(color: Colors.grey.shade100, width: 2),
         ),
       ),
       child: Column(
@@ -715,34 +723,43 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
         children: [
           Row(
             children: [
-              IconButton(
-                onPressed: () => Navigator.pushNamedAndRemoveUntil(
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => Navigator.pushNamedAndRemoveUntil(
                   context,
                   Routes.cashierDashboard,
                   (r) => false,
                 ),
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.grey),
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.grey.shade600,
+                    size: 18,
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Text(
-                "Order Settings",
+                "New Order",
                 style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade500,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: ZAYTOUNA_BLUE,
+                  letterSpacing: 0.5,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
                 child: _SelectorButton(
                   title: "Customer",
                   value: _selectedCustomer?.name ?? "Walk-in",
-                  icon: Icons.person_outline,
-                  color: ZAYTOUNA_BLUE,
+                  icon: Icons.person_rounded,
+                  color: Colors.blueAccent,
                   onTap: () => _showSelectionDialog<PosCustomer>(
                     "Select Customer",
                     _customers,
@@ -750,38 +767,31 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
                 child: _SelectorButton(
                   title: "Type",
                   value: _selectedOrderType?.name ?? "Select Type",
-                  icon: Icons.shopping_bag_outlined,
-                  color: Colors.orange.shade700,
+                  icon: Icons.shopping_bag_rounded,
+                  color: Colors.orange.shade600,
                   onTap: () => _showSelectionDialog<PosOrderType>(
                     "Select Order Type",
                     _orderTypes,
-                    (item) {
-                      setState(() {
-                        _selectedOrderType = item;
-                      });
-                    },
+                    (item) => setState(() => _selectedOrderType = item),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
-              // PERMANENT TABLE SELECTOR (Facility is removed from this row)
+              const SizedBox(width: 12),
               Expanded(
                 child: _SelectorButton(
                   title: "Table",
                   value: _selectedTable?.name ?? "Select Table",
-                  icon: Icons.table_restaurant_outlined,
+                  icon: Icons.table_restaurant_rounded,
                   color: ZAYTOUNA_GREEN,
                   onTap: () => _showSelectionDialog<PosTable>(
                     "Select Table",
                     _tables,
-                    (item) => setState(() {
-                      _selectedTable = item;
-                    }),
+                    (item) => setState(() => _selectedTable = item),
                   ),
                 ),
               ),
@@ -794,7 +804,7 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
 
   Widget _buildCartHeader() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      padding: const EdgeInsets.fromLTRB(24, 20, 20, 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -802,16 +812,16 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
             "Current Order",
             style: GoogleFonts.inter(
               fontWeight: FontWeight.w800,
-              fontSize: 18,
-              color: Colors.black87,
+              fontSize: 20,
+              color: ZAYTOUNA_BLUE,
             ),
           ),
           if (widget.editOrderId == null)
             IconButton(
-              onPressed: _clearCart,
-              icon: const Icon(
-                Icons.delete_sweep,
-                color: Colors.redAccent,
+              onPressed: _cart.isEmpty ? null : _clearCart,
+              icon: Icon(
+                Icons.delete_outline_rounded,
+                color: _cart.isEmpty ? Colors.grey.shade300 : Colors.redAccent,
                 size: 24,
               ),
               tooltip: 'Clear Cart',
@@ -819,10 +829,17 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
           else
             TextButton.icon(
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.cancel, color: Colors.redAccent, size: 18),
-              label: const Text(
+              icon: const Icon(
+                Icons.cancel_rounded,
+                color: Colors.redAccent,
+                size: 18,
+              ),
+              label: Text(
                 "Cancel Edit",
-                style: TextStyle(color: Colors.redAccent),
+                style: GoogleFonts.inter(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
         ],
@@ -836,17 +853,24 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.shopping_cart_outlined,
-              size: 48,
-              color: Colors.grey.shade300,
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.shopping_cart_outlined,
+                size: 48,
+                color: Colors.grey.shade300,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
-              "Cart is empty",
+              "Your cart is empty",
               style: GoogleFonts.inter(
-                color: Colors.grey.shade500,
-                fontSize: 14,
+                color: Colors.grey.shade400,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -855,74 +879,94 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       itemCount: _cart.length,
-      separatorBuilder: (_, _) =>
-          Divider(height: 12, color: Colors.grey.shade200),
+      separatorBuilder: (_, _) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final item = _cart[index];
-        return Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.product.name,
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  Text(
-                    '\$${item.product.price.toStringAsFixed(2)} ${item.product.isFacility ? '/hr' : 'ea'}',
-                    style: GoogleFonts.jetBrainsMono(
-                      fontSize: 11,
-                      color: Colors.grey.shade500,
-                    ),
-                  ),
-                ],
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade100),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.015),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
-                children: [
-                  _qtyBtn(Icons.remove, () => _updateQty(index, -1)),
-                  Container(
-                    width: 32,
-                    alignment: Alignment.center,
-                    child: Text(
-                      '${item.quantity}',
-                      style: GoogleFonts.jetBrainsMono(
-                        fontWeight: FontWeight.bold,
+            ],
+          ),
+          child: Row(
+            children: [
+              // Product Info
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.product.name,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
                         fontSize: 14,
+                        color: ZAYTOUNA_BLUE,
                       ),
                     ),
-                  ),
-                  _qtyBtn(Icons.add, () => _updateQty(index, 1)),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                '\$${item.total.toStringAsFixed(2)}',
-                textAlign: TextAlign.right,
-                style: GoogleFonts.jetBrainsMono(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: ZAYTOUNA_BLUE,
+                    const SizedBox(height: 4),
+                    Text(
+                      '\$${item.product.price.toStringAsFixed(2)} ${item.product.isFacility ? '/hr' : 'ea'}',
+                      style: GoogleFonts.jetBrainsMono(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              // Modern Pill Quantity Adjuster
+              Container(
+                decoration: BoxDecoration(
+                  color: BG_COLOR,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    _qtyBtn(Icons.remove_rounded, () => _updateQty(index, -1)),
+                    Container(
+                      width: 32,
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${item.quantity}',
+                        style: GoogleFonts.jetBrainsMono(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: ZAYTOUNA_BLUE,
+                        ),
+                      ),
+                    ),
+                    _qtyBtn(Icons.add_rounded, () => _updateQty(index, 1)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Total Price
+              Expanded(
+                flex: 2,
+                child: Text(
+                  '\$${item.total.toStringAsFixed(2)}',
+                  textAlign: TextAlign.right,
+                  style: GoogleFonts.jetBrainsMono(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: ZAYTOUNA_GREEN,
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -931,20 +975,21 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
   Widget _qtyBtn(IconData icon, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(20),
       child: Padding(
-        padding: const EdgeInsets.all(6.0),
-        child: Icon(icon, size: 16, color: Colors.black87),
+        padding: const EdgeInsets.all(8.0),
+        child: Icon(icon, size: 16, color: Colors.grey.shade700),
       ),
     );
   }
 
   Widget _buildBillingSummary() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      margin: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200, width: 2)),
+        color: BG_COLOR,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
@@ -968,7 +1013,7 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
           _interactiveSummaryRow(
             "Tax (${_taxPercent.toStringAsFixed(1)}%)",
             "+\$${_taxAmountUSD.toStringAsFixed(2)}",
-            Colors.grey.shade700,
+            Colors.grey.shade600,
             () {
               if (!_isCheckoutMode) {
                 _showNumberInputDialog(
@@ -981,20 +1026,22 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
               }
             },
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: Colors.grey.shade300),
           ),
           _summaryRow(
             "Total (USD)",
             "\$${_finalTotalUSD.toStringAsFixed(2)}",
             isTotal: true,
           ),
+          const SizedBox(height: 4),
           _summaryRow(
             "Total (LBP)",
             "${roundToNearest5000(_finalTotalUSD * _exchangeRate)} LBP",
             isTotal: true,
-            color: ZAYTOUNA_BLUE,
+            color: Colors.grey.shade500,
+            isSecondaryTotal: true,
           ),
         ],
       ),
@@ -1005,27 +1052,28 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
     String label,
     String val, {
     bool isTotal = false,
+    bool isSecondaryTotal = false,
     Color? color,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             label,
             style: GoogleFonts.inter(
-              color: isTotal ? Colors.black87 : Colors.grey.shade600,
+              color: isTotal ? ZAYTOUNA_BLUE : Colors.grey.shade600,
               fontWeight: isTotal ? FontWeight.w800 : FontWeight.w600,
-              fontSize: isTotal ? 15 : 13,
+              fontSize: isTotal ? (isSecondaryTotal ? 13 : 16) : 13,
             ),
           ),
           Text(
             val,
             style: GoogleFonts.jetBrainsMono(
-              fontWeight: FontWeight.bold,
-              fontSize: isTotal ? 16 : 13,
-              color: color ?? Colors.black87,
+              fontWeight: isTotal ? FontWeight.w900 : FontWeight.bold,
+              fontSize: isTotal ? (isSecondaryTotal ? 14 : 20) : 13,
+              color: color ?? (isTotal ? ZAYTOUNA_BLUE : Colors.black87),
             ),
           ),
         ],
@@ -1041,9 +1089,9 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
   ) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(8),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1052,14 +1100,18 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
                 Text(
                   label,
                   style: GoogleFonts.inter(
-                    color: _isCheckoutMode ? Colors.grey : Colors.blue.shade700,
+                    color: _isCheckoutMode ? Colors.grey : Colors.blue.shade600,
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 6),
                 if (!_isCheckoutMode)
-                  Icon(Icons.edit, size: 12, color: Colors.blue.shade700),
+                  Icon(
+                    Icons.edit_rounded,
+                    size: 14,
+                    color: Colors.blue.shade600,
+                  ),
               ],
             ),
             Text(
@@ -1090,43 +1142,67 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           title,
-          style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w800,
+            color: ZAYTOUNA_BLUE,
+          ),
         ),
         content: TextField(
           controller: ctrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           autofocus: true,
+          style: GoogleFonts.jetBrainsMono(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
           decoration: InputDecoration(
             hintText: hint,
             prefixText: isPercent ? null : '\$ ',
             suffixText: isPercent ? ' %' : null,
             filled: true,
-            fillColor: Colors.grey.shade100,
+            fillColor: BG_COLOR,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
+            contentPadding: const EdgeInsets.all(16),
           ),
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(
               "Cancel",
-              style: GoogleFonts.inter(color: Colors.grey.shade600),
+              style: GoogleFonts.inter(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: ZAYTOUNA_BLUE),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ZAYTOUNA_BLUE,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
             onPressed: () {
               final val = double.tryParse(ctrl.text) ?? 0.0;
               onSave(val);
               Navigator.pop(ctx);
             },
-            child: Text("Apply", style: GoogleFonts.inter(color: Colors.white)),
+            child: Text(
+              "Apply",
+              style: GoogleFonts.inter(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         ],
       ),
@@ -1135,23 +1211,24 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
 
   Widget _buildPayButton() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
       child: SizedBox(
         width: double.infinity,
-        height: 56,
+        height: 60,
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: _isCheckoutMode
-                ? Colors.blueGrey
+                ? ZAYTOUNA_BLUE
                 : (widget.editOrderId != null
-                      ? Colors.orange.shade600
+                      ? Colors.orange.shade500
                       : ZAYTOUNA_GREEN),
             disabledBackgroundColor: Colors.grey.shade300,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(20),
             ),
-            elevation: _cart.isEmpty ? 0 : 4,
+            elevation: _cart.isEmpty ? 0 : 8,
+            shadowColor: (_isCheckoutMode ? ZAYTOUNA_BLUE : ZAYTOUNA_GREEN)
+                .withOpacity(0.4),
           ),
           onPressed: _cart.isEmpty
               ? null
@@ -1162,7 +1239,7 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
               if (_isCheckoutMode)
                 const Padding(
                   padding: EdgeInsets.only(right: 8.0),
-                  child: Icon(Icons.arrow_back, color: Colors.white),
+                  child: Icon(Icons.arrow_back_rounded, color: Colors.white),
                 ),
               Text(
                 _isCheckoutMode
@@ -1173,10 +1250,18 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
                 style: GoogleFonts.inter(
                   fontWeight: FontWeight.w800,
                   color: Colors.white,
-                  fontSize: 15,
-                  letterSpacing: 1.0,
+                  fontSize: 16,
+                  letterSpacing: 1.2,
                 ),
               ),
+              if (!_isCheckoutMode) ...[
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.arrow_forward_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ],
             ],
           ),
         ),
@@ -1194,17 +1279,22 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text(
           title,
-          style: GoogleFonts.dmSerifDisplay(fontSize: 24, color: ZAYTOUNA_BLUE),
+          style: GoogleFonts.inter(
+            fontWeight: FontWeight.w800,
+            fontSize: 22,
+            color: ZAYTOUNA_BLUE,
+          ),
         ),
         content: SizedBox(
           width: 400,
           child: ListView.separated(
             shrinkWrap: true,
             itemCount: items.length,
-            separatorBuilder: (_, _) => Divider(color: Colors.grey.shade200),
+            separatorBuilder: (_, _) =>
+                Divider(color: Colors.grey.shade100, height: 1),
             itemBuilder: (context, index) {
               final item = items[index];
               String name = '';
@@ -1214,14 +1304,29 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
               if (item is PosTable) name = item.name;
 
               return ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 title: Text(
                   name,
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w600,
                     fontSize: 16,
+                    color: ZAYTOUNA_BLUE,
                   ),
                 ),
-                trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                trailing: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: BG_COLOR,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
+                ),
                 onTap: () {
                   onSelect(item);
                   Navigator.pop(context);
@@ -1230,6 +1335,7 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
             },
           ),
         ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         actions: [
           TextButton(
             onPressed: () {
@@ -1240,18 +1346,23 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
               "Clear",
               style: GoogleFonts.inter(
                 color: Colors.redAccent,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: BG_COLOR,
+              foregroundColor: ZAYTOUNA_BLUE,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
             onPressed: () => Navigator.pop(context),
             child: Text(
               "Cancel",
-              style: GoogleFonts.inter(
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w600,
-              ),
+              style: GoogleFonts.inter(fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -1261,171 +1372,55 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
 
   Widget _buildMenuHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+      padding: const EdgeInsets.fromLTRB(32, 24, 32, 16),
       child: Text(
-        "POS Terminal",
-        style: GoogleFonts.dmSerifDisplay(fontSize: 28, color: ZAYTOUNA_BLUE),
+        "Zaytouna Park POS",
+        style: GoogleFonts.inter(
+          fontWeight: FontWeight.w900,
+          fontSize: 28,
+          color: ZAYTOUNA_BLUE,
+          letterSpacing: -0.5,
+        ),
       ),
     );
   }
 
+  // ─── MODERN SLIDER FOR VIEWS ───
   Widget _buildViewToggle() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
       child: Container(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(12),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  _currentView = PosView.menu;
-                  _selectedCategory = null;
-                }),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _currentView == PosView.menu
-                        ? Colors.white
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: _currentView == PosView.menu
-                        ? [
-                            const BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                            ),
-                          ]
-                        : [],
-                  ),
-                  alignment: Alignment.center,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.restaurant_menu,
-                        size: 18,
-                        color: _currentView == PosView.menu
-                            ? ZAYTOUNA_BLUE
-                            : Colors.grey,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Kitchen",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: _currentView == PosView.menu
-                              ? ZAYTOUNA_BLUE
-                              : Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _buildViewToggleItem(
+              "Kitchen",
+              Icons.restaurant_menu_rounded,
+              PosView.menu,
+              Colors.blue,
             ),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  _currentView = PosView.inventory;
-                  _selectedCategory = null;
-                }),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _currentView == PosView.inventory
-                        ? Colors.white
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: _currentView == PosView.inventory
-                        ? [
-                            const BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                            ),
-                          ]
-                        : [],
-                  ),
-                  alignment: Alignment.center,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.shopping_basket_outlined,
-                        size: 18,
-                        color: _currentView == PosView.inventory
-                            ? Colors.orange.shade700
-                            : Colors.grey,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Retail",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: _currentView == PosView.inventory
-                              ? Colors.orange.shade700
-                              : Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _buildViewToggleItem(
+              "Retail",
+              Icons.shopping_basket_rounded,
+              PosView.inventory,
+              Colors.orange,
             ),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  _currentView = PosView.facility;
-                  _selectedCategory = null;
-                }),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: _currentView == PosView.facility
-                        ? Colors.white
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: _currentView == PosView.facility
-                        ? [
-                            const BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                            ),
-                          ]
-                        : [],
-                  ),
-                  alignment: Alignment.center,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.calendar_month_rounded,
-                        size: 18,
-                        color: _currentView == PosView.facility
-                            ? Colors.purple
-                            : Colors.grey,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Bookings",
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                          color: _currentView == PosView.facility
-                              ? Colors.purple
-                              : Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _buildViewToggleItem(
+              "Bookings",
+              Icons.calendar_month_rounded,
+              PosView.facility,
+              Colors.purple,
             ),
           ],
         ),
@@ -1433,143 +1428,218 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
     );
   }
 
-  Widget _buildCategoryTabs() {
-    final displayCategories = _currentCategories;
-    if (displayCategories.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
-      child: SizedBox(
-        height: 40,
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          scrollDirection: Axis.horizontal,
-          itemCount: displayCategories.length + 1,
-          separatorBuilder: (_, _) => const SizedBox(width: 8),
-          itemBuilder: (context, index) {
-            Color activeCol = ZAYTOUNA_BLUE;
-            if (_currentView == PosView.inventory) {
-              activeCol = Colors.orange.shade700;
-            }
-            if (_currentView == PosView.facility) activeCol = Colors.purple;
-            if (index == 0) {
-              return _CategoryTab(
-                title: "All",
-                isSelected: _selectedCategory == null,
-                activeColor: activeCol,
-                onTap: () => setState(() => _selectedCategory = null),
-              );
-            }
-            final cat = displayCategories[index - 1];
-            return _CategoryTab(
-              title: cat.name,
-              isSelected: _selectedCategory?.id == cat.id,
-              activeColor: activeCol,
-              onTap: () => setState(() => _selectedCategory = cat),
-            );
-          },
+  Widget _buildViewToggleItem(
+    String title,
+    IconData icon,
+    PosView view,
+    MaterialColor color,
+  ) {
+    final isSelected = _currentView == view;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() {
+          _currentView = view;
+          _selectedCategory = null;
+        }),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? color.shade50 : Colors.transparent,
+            borderRadius: BorderRadius.circular(100),
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 18,
+                color: isSelected ? color.shade700 : Colors.grey.shade400,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: GoogleFonts.inter(
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: 14,
+                  color: isSelected ? color.shade700 : Colors.grey.shade500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  // ─── DYNAMIC CATEGORY TABS ───
+  Widget _buildCategoryTabs() {
+    final displayCategories = _currentCategories;
+    if (displayCategories.isEmpty) return const SizedBox.shrink();
+
+    // Determine active color based on main view slider
+    Color activeCol = Colors.blue.shade600;
+    if (_currentView == PosView.inventory) activeCol = Colors.orange.shade600;
+    if (_currentView == PosView.facility) activeCol = Colors.purple.shade500;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+      child: SizedBox(
+        height: 44,
+        // Wrap with ScrollConfiguration to enable mouse dragging
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse, // Fixes dragging on Web/Desktop
+              PointerDeviceKind.trackpad,
+            },
+          ),
+          child: ListView.separated(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            scrollDirection: Axis.horizontal,
+            itemCount: displayCategories.length + 1,
+            separatorBuilder: (_, _) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return _CategoryTab(
+                  title: "All",
+                  isSelected: _selectedCategory == null,
+                  activeColor: activeCol,
+                  onTap: () => setState(() => _selectedCategory = null),
+                );
+              }
+              final cat = displayCategories[index - 1];
+              return _CategoryTab(
+                title: cat.name,
+                isSelected: _selectedCategory?.id == cat.id,
+                activeColor: activeCol,
+                onTap: () => setState(() => _selectedCategory = cat),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── PREMIUM ITEM GRID ───
   Widget _buildItemsGrid() {
     final displayedItems = _currentDisplayItems;
     if (displayedItems.isEmpty) {
       return Center(
         child: Text(
-          "No items found in this section.",
-          style: GoogleFonts.inter(color: Colors.grey.shade500, fontSize: 16),
+          "No items found.",
+          style: GoogleFonts.inter(
+            color: Colors.grey.shade400,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       );
     }
     return GridView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(32),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.80,
+        crossAxisSpacing: 24,
+        mainAxisSpacing: 24,
+        childAspectRatio: 0.75, // Taller for modern card look
       ),
       itemCount: displayedItems.length,
       itemBuilder: (context, index) {
         final item = displayedItems[index];
-        return InkWell(
-          onTap: () => _addToCart(item),
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+        return _buildProductCard(item);
+      },
+    );
+  }
+
+  Widget _buildProductCard(PosProduct item) {
+    Color themeColor = ZAYTOUNA_GREEN;
+    if (item.isFacility) themeColor = Colors.purple;
+    if (item.isInventoryItem) themeColor = Colors.orange.shade600;
+
+    return InkWell(
+      onTap: () => _addToCart(item),
+      borderRadius: BorderRadius.circular(24),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.grey.shade100, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
-            child: Column(
+          ],
+        ),
+        child: Stack(
+          children: [
+            Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Image Header
                 Expanded(
-                  flex: 5,
+                  flex: 6,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: item.isFacility
-                          ? Colors.purple.withOpacity(0.1)
-                          : (item.isInventoryItem
-                                ? Colors.orange.withOpacity(0.1)
-                                : ZAYTOUNA_GREEN.withOpacity(0.1)),
+                      color: themeColor.withOpacity(0.05),
                       borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
+                        top: Radius.circular(22),
                       ),
                     ),
                     child: item.imageUrl != null && item.imageUrl!.isNotEmpty
                         ? ClipRRect(
                             borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(16),
+                              top: Radius.circular(22),
                             ),
                             child: Image.network(
                               item.imageUrl!,
                               fit: BoxFit.cover,
                               errorBuilder: (c, e, s) =>
-                                  _buildFallbackIcon(item),
+                                  _buildFallbackIcon(item, themeColor),
                             ),
                           )
-                        : _buildFallbackIcon(item),
+                        : _buildFallbackIcon(item, themeColor),
                   ),
                 ),
+                // Text Footer
                 Expanded(
                   flex: 4,
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 12.0,
+                    ),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           item.name,
-                          textAlign: TextAlign.center,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12,
-                            color: Colors.black87,
-                            height: 1.1,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            color: ZAYTOUNA_BLUE,
+                            height: 1.2,
                           ),
                         ),
-                        const SizedBox(height: 4),
                         Text(
                           '\$${item.price.toStringAsFixed(2)}',
                           style: GoogleFonts.jetBrainsMono(
-                            color: item.isFacility
-                                ? Colors.purple
-                                : (item.isInventoryItem
-                                      ? Colors.orange.shade700
-                                      : ZAYTOUNA_GREEN),
+                            color: themeColor,
                             fontWeight: FontWeight.w900,
-                            fontSize: 14,
+                            fontSize: 16,
                           ),
                         ),
                       ],
@@ -1578,23 +1648,48 @@ class _UpgradedPOSState extends State<UpgradedPOS> {
                 ),
               ],
             ),
-          ),
-        );
-      },
+            // Floating Plus Icon Top Right
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.9),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Icon(Icons.add_rounded, size: 16, color: themeColor),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildFallbackIcon(PosProduct item) {
+  Widget _buildFallbackIcon(PosProduct item, Color color) {
     IconData icon = Icons.fastfood_rounded;
-    Color color = ZAYTOUNA_GREEN;
-    if (item.isFacility) {
-      icon = Icons.calendar_month_rounded;
-      color = Colors.purple;
-    } else if (item.isInventoryItem) {
-      icon = Icons.shopping_basket_rounded;
-      color = Colors.orange;
-    }
-    return Center(child: Icon(icon, size: 36, color: color.withOpacity(0.5)));
+    if (item.isFacility) icon = Icons.calendar_month_rounded;
+    if (item.isInventoryItem) icon = Icons.shopping_basket_rounded;
+
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: color.withOpacity(0.1), blurRadius: 10)],
+        ),
+        child: Icon(icon, size: 32, color: color.withOpacity(0.6)),
+      ),
+    );
   }
 }
 
@@ -1615,23 +1710,34 @@ class _CategoryTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
+      borderRadius: BorderRadius.circular(100),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
           color: isSelected ? activeColor : Colors.white,
           border: Border.all(
-            color: isSelected ? activeColor : Colors.grey.shade300,
+            color: isSelected ? activeColor : Colors.grey.shade200,
+            width: 1.5,
           ),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(100),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: activeColor.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : [],
         ),
         child: Text(
           title,
           style: GoogleFonts.inter(
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
-            color: isSelected ? Colors.white : Colors.grey.shade600,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            fontSize: 14,
+            color: isSelected ? Colors.white : Colors.grey.shade500,
           ),
         ),
       ),
@@ -1658,25 +1764,25 @@ class _SelectorButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          border: Border.all(color: color.withOpacity(0.3)),
-          borderRadius: BorderRadius.circular(10),
+          color: BG_COLOR,
+          border: Border.all(color: Colors.grey.shade100, width: 2),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.1),
-                shape: BoxShape.circle,
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, size: 14, color: color),
+              child: Icon(icon, size: 16, color: color),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1684,24 +1790,29 @@ class _SelectorButton extends StatelessWidget {
                   Text(
                     title,
                     style: GoogleFonts.inter(
-                      fontSize: 9,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
                     ),
                   ),
                   Text(
                     value,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w800,
-                      color: Colors.black87,
+                      color: ZAYTOUNA_BLUE,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.arrow_drop_down, color: Colors.grey.shade500, size: 16),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Colors.grey.shade400,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -1709,6 +1820,7 @@ class _SelectorButton extends StatelessWidget {
   }
 }
 
+// ─── REDESIGNED EMBEDDED CHECKOUT ───
 class _EmbeddedCheckoutPanel extends StatefulWidget {
   final double totalUSD;
   final double exchangeRate;
@@ -1757,7 +1869,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Container(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(40),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1765,36 +1877,86 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
               children: [
                 IconButton(
                   onPressed: widget.onBack,
-                  icon: const Icon(Icons.arrow_back_ios_new, size: 24),
+                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 24),
                   color: ZAYTOUNA_BLUE,
                 ),
+                const SizedBox(width: 8),
                 Text(
-                  "Complete Checkout",
-                  style: GoogleFonts.dmSerifDisplay(
+                  "Checkout",
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w900,
                     fontSize: 32,
                     color: ZAYTOUNA_BLUE,
+                    letterSpacing: -0.5,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 32),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.withOpacity(0.3)),
-              ),
-              child: Text(
-                "Amount Due: \$${widget.totalUSD.toStringAsFixed(2)}  •  ${roundToNearest5000(widget.totalUSD * currentExchangeRate)} LBP",
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  color: ZAYTOUNA_BLUE,
-                  fontWeight: FontWeight.bold,
+                gradient: LinearGradient(
+                  colors: [ZAYTOUNA_BLUE, ZAYTOUNA_BLUE.withOpacity(0.8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: ZAYTOUNA_BLUE.withOpacity(0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Amount Due",
+                        style: GoogleFonts.inter(
+                          color: Colors.blue.shade100,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "\$${widget.totalUSD.toStringAsFixed(2)}",
+                        style: GoogleFonts.jetBrainsMono(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 32,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Text(
+                      "${roundToNearest5000(widget.totalUSD * currentExchangeRate)} LBP",
+                      style: GoogleFonts.jetBrainsMono(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
             Row(
               children: [
                 Expanded(
@@ -1804,7 +1966,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                         setState(() => tenderedUSD = double.tryParse(v) ?? 0),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 24),
                 Expanded(
                   child: _paymentInput(
                     "Tender LBP",
@@ -1814,8 +1976,9 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Expanded(
                   flex: 1,
@@ -1832,15 +1995,15 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                     controller: _rateCtrl,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 24),
                 Expanded(
                   flex: 1,
                   child: Container(
-                    margin: const EdgeInsets.only(top: 24),
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: BG_COLOR,
-                      borderRadius: BorderRadius.circular(12),
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade200, width: 2),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1848,13 +2011,13 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                         _changeRow(
                           "Return USD",
                           "\$${changeDueUSD.toStringAsFixed(2)}",
-                          changeDueUSD < 0 ? Colors.red : ZAYTOUNA_GREEN,
+                          changeDueUSD < 0 ? Colors.redAccent : ZAYTOUNA_GREEN,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 8),
                         _changeRow(
                           "Return LBP",
                           "${roundToNearest5000(changeDueUSD * currentExchangeRate)} LBP",
-                          changeDueUSD < 0 ? Colors.red : ZAYTOUNA_BLUE,
+                          changeDueUSD < 0 ? Colors.redAccent : ZAYTOUNA_BLUE,
                         ),
                       ],
                     ),
@@ -1862,14 +2025,14 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 48),
             Row(
               children: [
                 Expanded(
                   child: _methodButton(
                     "SAVE UNPAID",
-                    Icons.receipt_long,
-                    Colors.orange.shade700,
+                    Icons.receipt_long_rounded,
+                    Colors.orange.shade600,
                     onTap: () => widget.onConfirm("pending", true, false),
                   ),
                 ),
@@ -1877,8 +2040,8 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                 Expanded(
                   child: _methodButton(
                     "CARD",
-                    Icons.credit_card,
-                    Colors.blue,
+                    Icons.credit_card_rounded,
+                    Colors.blue.shade600,
                     onTap: () => widget.onConfirm("card", false, true),
                   ),
                 ),
@@ -1890,7 +2053,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                 Expanded(
                   child: _methodButton(
                     "CASH",
-                    Icons.payments,
+                    Icons.payments_rounded,
                     ZAYTOUNA_GREEN,
                     onTap: () => widget.onConfirm("cash", false, true),
                   ),
@@ -1899,7 +2062,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                 Expanded(
                   child: _methodButton(
                     "PRINT & PAY",
-                    Icons.print,
+                    Icons.print_rounded,
                     ZAYTOUNA_GREEN,
                     isPrimary: true,
                     onTap: () => widget.onConfirm("cash", true, true),
@@ -1925,36 +2088,41 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
         Text(
           label,
           style: GoogleFonts.inter(
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             color: Colors.grey.shade600,
             fontSize: 13,
+            letterSpacing: 0.5,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         TextField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           style: GoogleFonts.jetBrainsMono(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: ZAYTOUNA_BLUE,
           ),
           decoration: InputDecoration(
             prefixText: prefixText,
             prefixStyle: GoogleFonts.jetBrainsMono(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
               color: Colors.grey.shade400,
             ),
             filled: true,
-            fillColor: Colors.grey.shade100,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+            fillColor: Colors.white,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: Colors.grey.shade200, width: 2),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: ZAYTOUNA_BLUE, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
+              horizontal: 20,
+              vertical: 20,
             ),
           ),
           onChanged: onChange,
@@ -1970,9 +2138,9 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
         Text(
           label,
           style: GoogleFonts.inter(
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w700,
             fontSize: 14,
-            color: Colors.grey.shade700,
+            color: Colors.grey.shade600,
           ),
         ),
         Text(
@@ -1999,19 +2167,22 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
       style: ElevatedButton.styleFrom(
         backgroundColor: isPrimary ? color : Colors.white,
         foregroundColor: isPrimary ? Colors.white : color,
-        side: BorderSide(color: color, width: 2),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 0,
+        side: isPrimary
+            ? BorderSide.none
+            : BorderSide(color: color.withOpacity(0.3), width: 2),
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: isPrimary ? 8 : 0,
+        shadowColor: color.withOpacity(0.4),
       ),
       onPressed: isUnderpaid ? null : onTap,
-      icon: Icon(icon, size: 20),
+      icon: Icon(icon, size: 22),
       label: Text(
         label,
         style: GoogleFonts.inter(
-          fontWeight: FontWeight.w800,
-          fontSize: 13,
-          letterSpacing: 1.0,
+          fontWeight: FontWeight.w900,
+          fontSize: 14,
+          letterSpacing: 1.2,
         ),
       ),
     );

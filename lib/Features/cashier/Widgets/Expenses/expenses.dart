@@ -225,7 +225,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   List<ExpenseItem> _expenses = [];
   List<ExpenseItem> _cachedFiltered = [];
 
-  static const List<CategoryData> _categories = [
+  static const List<CategoryData> _defaultCategories = [
     CategoryData(
       title: 'Supplies',
       icon: Icons.inventory_2_rounded,
@@ -277,6 +277,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     ),
   ];
 
+  List<CategoryData> _categories = _defaultCategories;
+  final Map<ExpenseCategory, int> _categoryIdsByEnum = {};
+
   @override
   void initState() {
     super.initState();
@@ -284,20 +287,37 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     _loadExpenses();
   }
 
-  // Parsers to work around the single 'description' column in your DB schema
-  ExpenseCategory _extractCategory(String text) {
-    if (text.startsWith('[supplies]')) return ExpenseCategory.supplies;
-    if (text.startsWith('[utilities]')) return ExpenseCategory.utilities;
-    if (text.startsWith('[rent]')) return ExpenseCategory.rent;
-    if (text.startsWith('[salaries]')) return ExpenseCategory.salaries;
-    if (text.startsWith('[marketing]')) return ExpenseCategory.marketing;
-    if (text.startsWith('[maintenance]')) return ExpenseCategory.maintenance;
+  ExpenseCategory _categoryFromName(String name) {
+    final normalized = name.toLowerCase().trim();
+    if (normalized.contains('supply')) return ExpenseCategory.supplies;
+    if (normalized.contains('utility')) return ExpenseCategory.utilities;
+    if (normalized.contains('rent')) return ExpenseCategory.rent;
+    if (normalized.contains('salary')) return ExpenseCategory.salaries;
+    if (normalized.contains('market')) return ExpenseCategory.marketing;
+    if (normalized.contains('maintain') || normalized.contains('repair')) {
+      return ExpenseCategory.maintenance;
+    }
     return ExpenseCategory.other;
   }
 
+  CategoryData _buildCategoryData(int id, String name) {
+    final category = _categoryFromName(name);
+    final style = _defaultCategories.firstWhere(
+      (c) => c.category == category,
+      orElse: () => _defaultCategories.last,
+    );
+
+    return CategoryData(
+      title: name,
+      icon: style.icon,
+      color: style.color,
+      bgColor: style.bgColor,
+      category: category,
+    );
+  }
+
   String _extractTitle(String text) {
-    final noCat = text.replaceAll(RegExp(r'^\[.*?\]\s*'), '');
-    final parts = noCat.split(' | ');
+    final parts = text.split(' | ');
     return parts.isNotEmpty ? parts[0].trim() : 'Expense';
   }
 
@@ -313,15 +333,39 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   Future<void> _loadExpenses() async {
     setState(() => _isLoading = true);
     try {
+      final categoryData = await _supabase
+          .from('expense_categories')
+          .select('id, name')
+          .order('name', ascending: true);
+
+      final categoryDataList = categoryData as List<dynamic>?;
+      if (categoryDataList != null) {
+        final loadedCategories = <CategoryData>[];
+        for (var record in categoryDataList) {
+          final name = (record['name'] as String?)?.trim() ?? 'Other';
+          final category = _categoryFromName(name);
+          _categoryIdsByEnum[category] = record['id'] as int;
+          loadedCategories.add(_buildCategoryData(record['id'] as int, name));
+        }
+        if (loadedCategories.isNotEmpty) {
+          _categories = loadedCategories;
+        }
+      }
+
       final data = await _supabase
           .from('expenses')
-          .select('id, description, amount, created_at')
+          .select(
+            'id, description, amount, created_at, category_id, expense_categories(name)',
+          )
           .order('created_at', ascending: false);
 
       final expenses = <ExpenseItem>[];
-      for (var exp in data) {
+      for (var exp in data as List) {
         final rawDesc = exp['description']?.toString() ?? '';
-        final category = _extractCategory(rawDesc);
+        final categoryName = exp['expense_categories']?['name'] as String?;
+        final category = categoryName != null
+            ? _categoryFromName(categoryName)
+            : ExpenseCategory.other;
 
         expenses.add(
           ExpenseItem(
@@ -418,7 +462,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                             _CategoriesSection(
                               categories: _categories,
                               selectedCategory: _filterCategory,
-                              onCategorySelected: (c) => _updateFilters(category: c),
+                              onCategorySelected: (c) =>
+                                  _updateFilters(category: c),
                               constraints: constraints,
                             ),
                             SizedBox(height: 24.h),
@@ -454,11 +499,10 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                             SizedBox(height: 32.h),
                           ],
                         ),
+                      ),
                     ),
-                    ),
-                    ],
+                  ],
                 );
-
               },
             ),
     );
@@ -605,17 +649,22 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       set(() => isSubmitting = true);
 
                       try {
-                        // Database formatting trick
+                        final categoryId = _categoryIdsByEnum[selectedCategory];
                         final combinedDesc =
-                            '[${selectedCategory.name}] ${titleCtrl.text} | ${descCtrl.text}';
+                            '${titleCtrl.text.trim()} | ${descCtrl.text.trim()}';
+
+                        final insertPayload = {
+                          'description': combinedDesc,
+                          'amount': double.parse(amountCtrl.text),
+                          'recorded_by_id': _supabase.auth.currentUser?.id,
+                        };
+                        if (categoryId != null) {
+                          insertPayload['category_id'] = categoryId;
+                        }
 
                         final res = await _supabase
                             .from('expenses')
-                            .insert({
-                              'description': combinedDesc,
-                              'amount': double.parse(amountCtrl.text),
-                              'recorded_by_id': _supabase.auth.currentUser?.id,
-                            })
+                            .insert(insertPayload)
                             .select()
                             .single();
 

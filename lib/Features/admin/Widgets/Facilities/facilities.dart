@@ -102,6 +102,62 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
     );
   }
 
+  void _showEditDialog(Facility facility) {
+    showDialog(
+      context: context,
+      builder: (context) => _EditFacilityDialog(
+        facility: facility,
+        types: _types,
+        onSuccess: _fetchFacilities,
+      ),
+    );
+  }
+
+  Future<void> _deleteFacility(int id) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'Delete Facility',
+          style: GoogleFonts.dmSerifDisplay(fontSize: 20.sp),
+        ),
+        content: Text(
+          'Are you sure you want to delete this facility? This action cannot be undone.',
+          style: GoogleFonts.inter(fontSize: 13.sp),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.inter(color: Colors.grey[700]),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.inter(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await _supabase.from('facilities').delete().eq('id', id);
+      _showToast('Facility deleted', const Color(0xFF22C55E));
+      _fetchFacilities();
+    } catch (e) {
+      _showToast('Failed to delete facility', const Color(0xFFEF4444));
+    }
+  }
+
   void _showToast(String msg, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -132,15 +188,14 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
   }
 
   Widget _buildHeader() {
-    // Check if the screen is too narrow to show the full button text
-    final isMobile = MediaQuery.of(context).size.width < 500;
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 500;
 
     return Container(
       padding: EdgeInsets.fromLTRB(24.w, 48.h, 24.w, 20.h),
       color: Colors.white,
       child: Row(
         children: [
-          // FIX: Wrap titles in Expanded to prevent horizontal overflow
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -153,6 +208,7 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
                     color: const Color(0xFF22C55E),
                   ),
                 ),
+                SizedBox(height: 6.h),
                 Text(
                   'Park Areas & Assets',
                   style: GoogleFonts.dmSerifDisplay(
@@ -161,6 +217,14 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 6.h),
+                Text(
+                  '${_facilities.length} facilities available',
+                  style: GoogleFonts.inter(
+                    fontSize: 12.sp,
+                    color: Colors.grey[600],
+                  ),
                 ),
               ],
             ),
@@ -237,7 +301,11 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
       itemCount: _facilities.length,
       itemBuilder: (context, index) {
         final f = _facilities[index];
-        return _FacilityCard(facility: f);
+        return _FacilityCard(
+          facility: f,
+          onEdit: () => _showEditDialog(f),
+          onDelete: () => _deleteFacility(f.id),
+        );
       },
     );
   }
@@ -249,7 +317,14 @@ class _FacilitiesScreenState extends State<FacilitiesScreen> {
 
 class _FacilityCard extends StatelessWidget {
   final Facility facility;
-  const _FacilityCard({required this.facility});
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _FacilityCard({
+    required this.facility,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -262,52 +337,90 @@ class _FacilityCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: const Color(0xFFE2E5EA)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-      padding: EdgeInsets.all(16.w),
+      padding: EdgeInsets.all(18.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: EdgeInsets.all(8.w),
+                padding: EdgeInsets.all(10.w),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8.r),
+                  color: statusColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10.r),
                 ),
                 child: Icon(Icons.bed, size: 18.sp, color: statusColor),
               ),
-              _StatusBadge(isAvailable: facility.isAvailable),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      facility.name,
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15.sp,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      facility.typeName,
+                      style: GoogleFonts.inter(
+                        color: Colors.grey[600],
+                        fontSize: 11.sp,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                icon: Icon(
+                  Icons.more_vert_rounded,
+                  size: 20.sp,
+                  color: Colors.grey[700],
+                ),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text(
+                      'Delete',
+                      style: TextStyle(color: const Color(0xFFEF4444)),
+                    ),
+                  ),
+                ],
+                onSelected: (value) {
+                  if (value == 'edit') return onEdit();
+                  if (value == 'delete') return onDelete();
+                },
+              ),
             ],
           ),
-          const Spacer(),
-          Text(
-            facility.name,
-            style: GoogleFonts.inter(
-              fontWeight: FontWeight.bold,
-              fontSize: 14.sp,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            facility.typeName,
-            style: GoogleFonts.inter(color: Colors.grey, fontSize: 11.sp),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis, // Prevents overflow on long types
-          ),
-          const Divider(height: 24),
+          SizedBox(height: 18.h),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Wrap inside expanded to prevent bottom row overflow
               Expanded(
                 child: _InfoItem(
                   label: 'CAPACITY',
                   value: '${facility.capacity ?? "∞"}',
                 ),
               ),
+              SizedBox(width: 16.w),
               Expanded(
                 child: _InfoItem(
                   label: 'PRICE/HR',
@@ -315,6 +428,15 @@ class _FacilityCard extends StatelessWidget {
                   alignRight: true,
                 ),
               ),
+            ],
+          ),
+          SizedBox(height: 18.h),
+          Wrap(
+            spacing: 10.w,
+            runSpacing: 8.h,
+            children: [
+              _StatusBadge(isAvailable: facility.isAvailable),
+              _TagChip(label: facility.typeName),
             ],
           ),
         ],
@@ -384,6 +506,29 @@ class _InfoItem extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
       ],
+    );
+  }
+}
+
+class _TagChip extends StatelessWidget {
+  final String label;
+  const _TagChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF3F4F6),
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 10.sp,
+          color: const Color(0xFF4B5563),
+        ),
+      ),
     );
   }
 }
@@ -581,4 +726,216 @@ class _AddFacilityDialogState extends State<_AddFacilityDialog> {
       ), // Red Error
     ),
   );
+}
+
+class _EditFacilityDialog extends StatefulWidget {
+  final Facility facility;
+  final List<Map<String, dynamic>> types;
+  final VoidCallback onSuccess;
+
+  const _EditFacilityDialog({
+    required this.facility,
+    required this.types,
+    required this.onSuccess,
+  });
+
+  @override
+  State<_EditFacilityDialog> createState() => _EditFacilityDialogState();
+}
+
+class _EditFacilityDialogState extends State<_EditFacilityDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _priceCtrl;
+  late final TextEditingController _capCtrl;
+  int? _selectedTypeId;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTypeId = widget.facility.typeId;
+    _nameCtrl = TextEditingController(text: widget.facility.name);
+    _priceCtrl = TextEditingController(
+      text: widget.facility.pricePerHour.toStringAsFixed(0),
+    );
+    _capCtrl = TextEditingController(
+      text: widget.facility.capacity?.toString() ?? '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _priceCtrl.dispose();
+    _capCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate() || _selectedTypeId == null) return;
+
+    setState(() => _isSaving = true);
+    try {
+      await Supabase.instance.client
+          .from('facilities')
+          .update({
+            'name': _nameCtrl.text.trim(),
+            'type_id': _selectedTypeId,
+            'capacity': int.tryParse(_capCtrl.text),
+            'price_per_hour': double.tryParse(_priceCtrl.text),
+          })
+          .eq('id', widget.facility.id);
+      widget.onSuccess();
+      Navigator.pop(context);
+    } catch (e) {
+      debugPrint('Update failed: $e');
+    } finally {
+      setState(() => _isSaving = false);
+    }
+  }
+
+  InputDecoration _inputStyle(String label) => InputDecoration(
+    labelText: label,
+    labelStyle: GoogleFonts.inter(
+      fontSize: 12.sp,
+      color: const Color(0xFF6B7280),
+    ),
+    filled: true,
+    fillColor: const Color(0xFFF0F2F5),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12.r),
+      borderSide: BorderSide.none,
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12.r),
+      borderSide: BorderSide.none,
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12.r),
+      borderSide: const BorderSide(color: Color(0xFF22C55E), width: 1.5),
+    ),
+    errorBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12.r),
+      borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+      title: Text(
+        'Edit Facility',
+        style: GoogleFonts.dmSerifDisplay(color: const Color(0xFF1A1D26)),
+      ),
+      content: Container(
+        width: double.maxFinite,
+        constraints: BoxConstraints(maxWidth: 400.w),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                decoration: _inputStyle('Category / Type'),
+                dropdownColor: Colors.white,
+                iconEnabledColor: const Color(0xFF22C55E),
+                isExpanded: true,
+                items: widget.types
+                    .map(
+                      (t) => DropdownMenuItem(
+                        value: t['id'] as int,
+                        child: Text(
+                          t['name'],
+                          style: GoogleFonts.inter(
+                            color: const Color(0xFF1A1D26),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedTypeId = v),
+                value: _selectedTypeId,
+                validator: (v) => v == null ? 'Required' : null,
+              ),
+              SizedBox(height: 12.h),
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: _inputStyle('Name (e.g. Picnic Area B)'),
+                style: GoogleFonts.inter(color: const Color(0xFF1A1D26)),
+                validator: (v) => v!.isEmpty ? 'Required' : null,
+              ),
+              SizedBox(height: 12.h),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _capCtrl,
+                      decoration: _inputStyle('Capacity'),
+                      style: GoogleFonts.inter(color: const Color(0xFF1A1D26)),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _priceCtrl,
+                      decoration: _inputStyle('Price/hr'),
+                      style: GoogleFonts.inter(color: const Color(0xFF1A1D26)),
+                      keyboardType: TextInputType.number,
+                      validator: (v) => v!.isEmpty ? 'Required' : null,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            'Cancel',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF6B7280),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _isSaving ? null : _save,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF22C55E),
+            disabledBackgroundColor: const Color(0xFF22C55E).withOpacity(0.6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10.r),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+            elevation: 0,
+          ),
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  'Save Changes',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
 }
