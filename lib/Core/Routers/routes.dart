@@ -16,34 +16,26 @@ class Routes {
   // MAIN NAVIGATION
   static const String shell = '/shell';
   static const String home = '/home';
-  static const String pos = '/pos'; // The Kiosk/Quick Sale view
+  static const String pos = '/pos';
 
-  // SPORTS & FACILITIES (Zaytouna Park Specific)
-  static const String bookings = '/bookings'; // Football & Padel Calendar
-  static const String playground = '/playground'; // Kids Zone Entry/Passes
-  static const String tables = '/tables'; // Restaurant Floor Plan
-  static const String manageTables = '/manage-tables'; // Staff managing the restaurant floor
-  
-  // ADDED MISSING FACILITIES ROUTE
-  static const String facilities = '/facilities'; 
+  // SPORTS & FACILITIES
+  static const String bookings = '/bookings';
+  static const String playground = '/playground';
+  static const String tables = '/tables';
+  static const String manageTables = '/manage-tables';
+  static const String facilities = '/facilities';
 
   // INVENTORY & MENU
   static const String inventory = '/inventory';
   static const String categories = '/categories';
   static const String suppliers = '/suppliers';
-  static const String menuItems = '/menu-items'; // Products & Matte Kits
-  
-  // ADDED MISSING MENU ROUTE
-  static const String menu = '/menu'; 
+  static const String menu = '/menu';
 
   // SALES & ORDERS
   static const String orders = '/orders';
-  static const String salesReport = '/sales-report';
+  static const String sales = '/sales';
   static const String reports = '/reports';
-  static const String deletedOrders = '/deleted-orders';
-  
-  // ADDED MISSING SALES ROUTE
-  static const String sales = '/sales'; 
+  static const String salesReport = '/sales-report';
 
   // FINANCE & CUSTOMERS
   static const String customers = '/customers';
@@ -57,12 +49,11 @@ class Routes {
   static const String notFound = '/not-found';
 
   // HELPER METHODS
-  static bool isAuthRoute(String route) {
-    return route == login || route == forgotPassword;
-  }
+  static bool isAuthRoute(String route) =>
+      route == login || route == forgotPassword;
 
   static String getDisplayName(String route) {
-    const Map<String, String> names = {
+    const names = <String, String>{
       adminDashboard: 'Admin Dashboard',
       cashierDashboard: 'Cashier Dashboard',
       kitchenDashboard: 'Kitchen Dashboard',
@@ -71,45 +62,44 @@ class Routes {
       bookings: 'Sports Bookings',
       playground: 'Playground',
       tables: 'Restaurant Tables',
-      inventory: 'Stock Control',
       manageTables: 'Manage Tables',
+      inventory: 'Stock Control',
       orders: 'Order History',
       customers: 'Customer Loyalty',
       expenses: 'Expenses & Bills',
       settings: 'Settings',
-      // Added display names for the new routes
       menu: 'Menu Management',
       facilities: 'Facilities',
       sales: 'Sales',
+      reports: 'Reports',
     };
     return names[route] ?? 'Zaytouna Park';
   }
 
   static IconData getIcon(String route) {
-    const Map<String, IconData> icons = {
+    const icons = <String, IconData>{
       adminDashboard: Icons.admin_panel_settings,
       cashierDashboard: Icons.point_of_sale,
       kitchenDashboard: Icons.kitchen,
       home: Icons.dashboard_rounded,
       pos: Icons.point_of_sale_rounded,
-      bookings: Icons.sports_tennis_rounded, 
+      bookings: Icons.sports_tennis_rounded,
       playground: Icons.child_friendly_rounded,
       tables: Icons.table_restaurant_rounded,
-      inventory: Icons.inventory_rounded,
       manageTables: Icons.table_restaurant_rounded,
+      inventory: Icons.inventory_rounded,
       orders: Icons.receipt_long_rounded,
       customers: Icons.people_rounded,
       expenses: Icons.monetization_on_rounded,
       settings: Icons.settings_rounded,
-      // Added icons for the new routes
       menu: Icons.restaurant_menu_rounded,
       facilities: Icons.apartment_rounded,
       sales: Icons.attach_money_rounded,
+      reports: Icons.bar_chart_rounded,
     };
     return icons[route] ?? Icons.circle_outlined;
   }
 
-  // Sidebar navigation items
   static const List<String> mainNavigation = [
     home,
     pos,
@@ -126,9 +116,8 @@ class Routes {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// APP PERMISSIONS (Tailored for Zaytouna Park logic)
+// APP PERMISSIONS
 // ─────────────────────────────────────────────────────────────────────────────
-
 class AppPermissions {
   AppPermissions._();
 
@@ -137,12 +126,19 @@ class AppPermissions {
   static const String voidOrders = 'void_orders';
 
   // Sports & Facilities
-  static const String manageBookings = 'manage_bookings'; 
-  static const String manageFacilities = 'manage_facilities'; 
+  static const String createBookings =
+      'create_bookings'; // cashier books a court for a customer
+  static const String manageBookings =
+      'manage_bookings'; // admin manages booking master data
+  static const String manageFacilities = 'manage_facilities';
 
   // F&B
-  static const String refillMatte = 'refill_matte'; 
-  static const String managetables = 'manage_tables'; 
+  static const String refillMatte = 'refill_matte';
+  static const String manageTables = 'manage_tables';
+
+  // Kitchen
+  static const String viewKitchenDisplay = 'view_kitchen_display';
+  static const String markItemsReady = 'mark_items_ready';
 
   // Back Office
   static const String viewReports = 'view_reports';
@@ -150,28 +146,35 @@ class AppPermissions {
   static const String manageExpenses = 'manage_expenses';
   static const String manageStaff = 'manage_staff';
 
-  /// Returns the permission required to access a specific route
+  /// Returns the permission required to access a specific route, or null if open to any authenticated user.
   static String? requiredFor(String route) {
     switch (route) {
       case Routes.pos:
         return useTerminal;
       case Routes.bookings:
-        return manageBookings;
       case Routes.playground:
-        return useTerminal;
-      case Routes.inventory:
-        return manageInventory;
+        return createBookings;
+      case Routes.facilities:
+        return manageFacilities;
       case Routes.manageTables:
-        return managetables; 
-      case Routes.salesReport:
-      case Routes.reports:
-        return viewReports;
+        return manageTables;
+      case Routes.inventory:
+      case Routes.categories:
+      case Routes.suppliers:
+      case Routes.menu:
+        return manageInventory;
       case Routes.expenses:
         return manageExpenses;
+      case Routes.reports:
+      case Routes.salesReport:
+      case Routes.sales:
+        return viewReports;
       case Routes.settings:
-        return manageStaff; 
+        return manageStaff;
+      case Routes.kitchenDashboard:
+        return viewKitchenDisplay;
       default:
-        return null; 
+        return null;
     }
   }
 }

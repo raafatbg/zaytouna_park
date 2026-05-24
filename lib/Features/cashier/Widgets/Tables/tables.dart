@@ -1,25 +1,26 @@
-// lib/Features/Tables/floor_plan_screen.dart
-// Zaytouna POS - Floor Plan (View & Toggle Tables)
-
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, avoid_print
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zaytouna_park/Core/Routers/routes.dart';
 
-class FloorPlanScreen extends StatefulWidget {
-  const FloorPlanScreen({super.key});
+// Assuming you have your typography and colors available,
+// if not, make sure they are imported from your theme file.
+
+class TablesPage extends StatefulWidget {
+  const TablesPage({super.key});
 
   @override
-  State<FloorPlanScreen> createState() => _FloorPlanScreenState();
+  State<TablesPage> createState() => _TablesPageState();
 }
 
-class _FloorPlanScreenState extends State<FloorPlanScreen> {
+class _TablesPageState extends State<TablesPage> {
   final _supabase = Supabase.instance.client;
-  List<Map<String, dynamic>> _tables = [];
   bool _isLoading = true;
+  List<Map<String, dynamic>> _tables = [];
 
   @override
   void initState() {
@@ -30,6 +31,7 @@ class _FloorPlanScreenState extends State<FloorPlanScreen> {
   Future<void> _fetchTables() async {
     setState(() => _isLoading = true);
     try {
+      // Fetch tables ordered by name
       final response = await _supabase
           .from('restaurant_tables')
           .select()
@@ -42,152 +44,161 @@ class _FloorPlanScreenState extends State<FloorPlanScreen> {
         });
       }
     } catch (e) {
-      print('Error fetching tables: $e');
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  // Allow staff to quickly toggle table status
-  Future<void> _toggleTableStatus(
-    int id,
-    bool currentStatus,
-    String name,
-  ) async {
-    HapticFeedback.lightImpact();
-    final newStatus = !currentStatus;
-
-    // Optimistic UI update for instant feedback
-    setState(() {
-      final index = _tables.indexWhere((t) => t['id'] == id);
-      if (index != -1) _tables[index]['is_available'] = newStatus;
-    });
-
-    try {
-      await _supabase
-          .from('restaurant_tables')
-          .update({'is_available': newStatus})
-          .eq('id', id);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '$name marked as ${newStatus ? 'Available' : 'Occupied'}',
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading tables: $e'),
+            backgroundColor: const Color(0xFFEF4444),
           ),
-          backgroundColor: newStatus
-              ? const Color(0xFF10B981)
-              : const Color(0xFFEF4444),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      // Revert if failed
-      setState(() {
-        final index = _tables.indexWhere((t) => t['id'] == id);
-        if (index != -1) _tables[index]['is_available'] = currentStatus;
-      });
-      print('Error updating table: $e');
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: const Color(0xFFF1F5F9), // bg
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'FLOOR PLAN',
-              style: GoogleFonts.inter(
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF8B6914),
-              ),
-            ),
-            Text(
-              'Live Seating Status',
-              style: GoogleFonts.inter(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF212529),
-              ),
-            ),
-          ],
+        centerTitle: false,
+        iconTheme: const IconThemeData(color: Color(0xFF1E293B)), // textDark
+        title: Text(
+          'Restaurant Floor Plan',
+          style: GoogleFonts.inter(
+            color: const Color(0xFF1E293B),
+            fontWeight: FontWeight.w800,
+            fontSize: 20.sp,
+          ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: Color(0xFF6C757D)),
-            onPressed: _fetchTables,
+          Container(
+            margin: EdgeInsets.only(right: 16.w),
+            decoration: BoxDecoration(
+              color: const Color(0xFFB8860B).withOpacity(0.1), // Primary light
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.refresh_rounded, color: Color(0xFFB8860B)),
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _fetchTables();
+              },
+            ),
           ),
-          SizedBox(width: 8.w),
         ],
       ),
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFFB8860B)),
             )
+          : _tables.isEmpty
+          ? _buildEmptyState()
           : RefreshIndicator(
-              onRefresh: _fetchTables,
               color: const Color(0xFFB8860B),
-              child: _tables.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No tables found. Please add tables in settings.',
-                        style: GoogleFonts.inter(color: Colors.grey),
-                      ),
-                    )
-                  : GridView.builder(
-                      padding: EdgeInsets.all(20.w),
-                      physics: const AlwaysScrollableScrollPhysics(
-                        parent: BouncingScrollPhysics(),
-                      ),
-                      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 220.w,
-                        childAspectRatio: 1.0,
-                        crossAxisSpacing: 16.w,
-                        mainAxisSpacing: 16.w,
-                      ),
-                      itemCount: _tables.length,
-                      itemBuilder: (context, index) {
-                        final table = _tables[index];
-                        return _buildTableCard(table);
-                      },
-                    ),
+              onRefresh: _fetchTables,
+              child: GridView.builder(
+                padding: EdgeInsets.all(24.w),
+                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 220.w,
+                  childAspectRatio: 1.0,
+                  crossAxisSpacing: 16.w,
+                  mainAxisSpacing: 16.h,
+                ),
+                itemCount: _tables.length,
+                itemBuilder: (context, index) {
+                  final table = _tables[index];
+                  return _buildTableCard(table);
+                },
+              ),
             ),
     );
   }
 
-  Widget _buildTableCard(Map<String, dynamic> table) {
-    final id = table['id'] as int;
-    final name = table['name'] as String;
-    final capacity = table['capacity'] as int?;
-    final isAvailable = table['is_available'] as bool? ?? false;
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.table_restaurant_outlined,
+            size: 64.sp,
+            color: Colors.grey.shade300,
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            'No tables configured yet.',
+            style: GoogleFonts.inter(
+              color: const Color(0xFF64748B),
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          TextButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/manage-tables'),
+            icon: const Icon(Icons.add, color: Color(0xFFB8860B)),
+            label: Text(
+              'Go to Manage Tables',
+              style: GoogleFonts.inter(
+                color: const Color(0xFFB8860B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    // Green for available, Red for occupied
-    final bgColor = isAvailable
-        ? const Color(0xFFDCFCE7)
-        : const Color(0xFFFEE2E2);
-    final fgColor = isAvailable
+  Widget _buildTableCard(Map<String, dynamic> table) {
+    // True = Green (Free), False = Red (Occupied/Disabled)
+    final bool isAvailable = table['is_available'] == true;
+    final String name = table['name'];
+    final int? capacity = table['capacity'];
+
+    final Color primaryColor = isAvailable
         ? const Color(0xFF10B981)
         : const Color(0xFFEF4444);
+    final Color bgColor = isAvailable
+        ? const Color(0xFFD1FAE5)
+        : const Color(0xFFFEE2E2);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _toggleTableStatus(id, isAvailable, name),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          if (isAvailable) {
+            // Navigate to POS to open a new order
+            Navigator.pushNamed(context, Routes.pos);
+          } else {
+            // Give a hint that it's occupied
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$name is currently occupied.'),
+                backgroundColor: const Color(0xFFEF4444),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        },
         borderRadius: BorderRadius.circular(16.r),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(color: const Color(0xFFE9ECEF)),
+            border: Border.all(
+              color: isAvailable
+                  ? const Color(0xFF10B981).withOpacity(0.5)
+                  : Colors.transparent,
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withOpacity(0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -197,7 +208,7 @@ class _FloorPlanScreenState extends State<FloorPlanScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: EdgeInsets.all(12.w),
+                padding: EdgeInsets.all(16.w),
                 decoration: BoxDecoration(
                   color: bgColor,
                   shape: BoxShape.circle,
@@ -205,7 +216,7 @@ class _FloorPlanScreenState extends State<FloorPlanScreen> {
                 child: Icon(
                   Icons.table_restaurant_rounded,
                   size: 32.sp,
-                  color: fgColor,
+                  color: primaryColor,
                 ),
               ),
               SizedBox(height: 12.h),
@@ -213,17 +224,21 @@ class _FloorPlanScreenState extends State<FloorPlanScreen> {
                 name,
                 style: GoogleFonts.inter(
                   fontSize: 16.sp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF212529),
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1E293B),
                 ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               if (capacity != null) ...[
                 SizedBox(height: 4.h),
                 Text(
-                  '$capacity Seats',
+                  'Seats $capacity',
                   style: GoogleFonts.inter(
                     fontSize: 12.sp,
-                    color: const Color(0xFF6C757D),
+                    color: const Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -232,14 +247,15 @@ class _FloorPlanScreenState extends State<FloorPlanScreen> {
                 padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
                 decoration: BoxDecoration(
                   color: bgColor,
-                  borderRadius: BorderRadius.circular(12.r),
+                  borderRadius: BorderRadius.circular(20.r),
                 ),
                 child: Text(
                   isAvailable ? 'AVAILABLE' : 'OCCUPIED',
                   style: GoogleFonts.inter(
+                    color: primaryColor,
+                    fontWeight: FontWeight.w800,
                     fontSize: 10.sp,
-                    fontWeight: FontWeight.w700,
-                    color: fgColor,
+                    letterSpacing: 0.5,
                   ),
                 ),
               ),

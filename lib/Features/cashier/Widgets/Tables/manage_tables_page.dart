@@ -1,25 +1,23 @@
-// lib/Features/Tables/manage_tables_screen.dart
-// Zaytouna POS - Manage Tables (Admin)
-
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, avoid_print
+// ignore_for_file: use_build_context_synchronously, deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ManageTablesScreen extends StatefulWidget {
-  const ManageTablesScreen({super.key});
+// Assuming ZaytounaColors and ZaytounaTypography are imported here
+// import 'package:zaytouna_park/Path/To/Your/Zaytouna_Theme.dart';
+
+class ManageTablesPage extends StatefulWidget {
+  const ManageTablesPage({super.key});
 
   @override
-  State<ManageTablesScreen> createState() => _ManageTablesScreenState();
+  State<ManageTablesPage> createState() => _ManageTablesPageState();
 }
 
-class _ManageTablesScreenState extends State<ManageTablesScreen> {
+class _ManageTablesPageState extends State<ManageTablesPage> {
   final _supabase = Supabase.instance.client;
-  List<Map<String, dynamic>> _tables = [];
   bool _isLoading = true;
+  List<Map<String, dynamic>> _tables = [];
 
   @override
   void initState() {
@@ -35,197 +33,180 @@ class _ManageTablesScreenState extends State<ManageTablesScreen> {
           .select()
           .order('name', ascending: true);
 
-      if (mounted) {
-        setState(() {
-          _tables = List<Map<String, dynamic>>.from(response);
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _tables = List<Map<String, dynamic>>.from(response);
+      });
     } catch (e) {
-      print('Error fetching tables: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading tables: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  Future<void> _deleteTable(int id) async {
-    try {
-      await _supabase.from('restaurant_tables').delete().eq('id', id);
-      _fetchTables();
-      _showToast('Table deleted', const Color(0xFF10B981));
-    } catch (e) {
-      _showToast('Failed to delete table', const Color(0xFFEF4444));
-    }
-  }
-
-  void _showTableDialog({Map<String, dynamic>? tableToEdit}) {
-    final isEditing = tableToEdit != null;
-    final nameCtrl = TextEditingController(
-      text: isEditing ? tableToEdit['name'] : '',
-    );
+  void _showAddTableDialog([Map<String, dynamic>? existingTable]) {
+    final isEditing = existingTable != null;
+    final nameCtrl = TextEditingController(text: existingTable?['name'] ?? '');
     final capCtrl = TextEditingController(
-      text: isEditing ? tableToEdit['capacity']?.toString() : '',
+      text: existingTable?['capacity']?.toString() ?? '',
     );
-    bool isSubmitting = false;
+    bool isAvailable = existingTable?['is_available'] ?? true;
 
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.r),
-          ),
-          title: Text(
-            isEditing ? 'Edit Table' : 'Add New Table',
-            style: GoogleFonts.inter(
-              fontSize: 18.sp,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Table Name (e.g. T-01)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.r),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20.r),
+              ),
+              title: Text(
+                isEditing ? 'Edit Table' : 'Add New Table',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Table Name (e.g., Table 1, Patio A)',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                  TextField(
+                    controller: capCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Seating Capacity',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                  SwitchListTile(
+                    title: const Text('Is Available?'),
+                    subtitle: const Text(
+                      'Allow orders to be assigned to this table.',
+                    ),
+                    value: isAvailable,
+                    activeThumbColor: const Color(
+                      0xFFB8860B,
+                    ), // Zaytouna Primary
+                    onChanged: (val) => setStateDialog(() => isAvailable = val),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey),
                   ),
                 ),
-              ),
-              SizedBox(height: 16.h),
-              TextField(
-                controller: capCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                ], // Only allow numbers
-                decoration: InputDecoration(
-                  labelText: 'Seat Capacity',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.r),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFB8860B),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFB8860B),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.r),
-                ),
-              ),
-              onPressed: isSubmitting
-                  ? null
-                  : () async {
-                      if (nameCtrl.text.isEmpty) {
-                        _showToast(
-                          'Table name is required',
-                          const Color(0xFFEF4444),
-                        );
-                        return;
-                      }
+                  onPressed: () async {
+                    if (nameCtrl.text.isEmpty) return;
+                    Navigator.pop(context); // close dialog
+                    setState(() => _isLoading = true);
 
-                      setDialogState(() => isSubmitting = true);
-
-                      // FIX: Ensure capacity is never null by providing a default (e.g., 4)
-                      final parsedCapacity =
-                          int.tryParse(capCtrl.text.trim()) ?? 4;
-
-                      final data = {
-                        'name': nameCtrl.text.trim(),
-                        'capacity': parsedCapacity,
-                        'is_available': isEditing
-                            ? (tableToEdit['is_available'] ?? true)
-                            : true,
+                    try {
+                      final tableData = {
+                        'name': nameCtrl.text,
+                        'capacity': int.tryParse(capCtrl.text),
+                        'is_available': isAvailable,
                       };
 
-                      try {
-                        if (isEditing) {
-                          await _supabase
-                              .from('restaurant_tables')
-                              .update(data)
-                              .eq('id', tableToEdit['id']);
-                        } else {
-                          await _supabase
-                              .from('restaurant_tables')
-                              .insert(data);
-                        }
-
-                        if (ctx.mounted) {
-                          Navigator.pop(ctx);
-                          _fetchTables();
-                          _showToast(
-                            isEditing ? 'Table updated' : 'Table created',
-                            const Color(0xFF10B981),
-                          );
-                        }
-                      } on PostgrestException catch (e) {
-                        // This catches Supabase specific errors (like Unique Name violations)
-                        print('Supabase Error: ${e.message}');
-                        setDialogState(() => isSubmitting = false);
-
-                        // If it's a unique constraint violation on the name
-                        if (e.code == '23505') {
-                          _showToast(
-                            'A table with this name already exists',
-                            const Color(0xFFEF4444),
-                          );
-                        } else {
-                          _showToast(e.message, const Color(0xFFEF4444));
-                        }
-                      } catch (e) {
-                        print('General Error: $e');
-                        setDialogState(() => isSubmitting = false);
-                        _showToast(
-                          'Failed to save table',
-                          const Color(0xFFEF4444),
-                        );
+                      if (isEditing) {
+                        await _supabase
+                            .from('restaurant_tables')
+                            .update(tableData)
+                            .eq('id', existingTable['id']);
+                      } else {
+                        await _supabase
+                            .from('restaurant_tables')
+                            .insert(tableData);
                       }
-                    },
-              child: isSubmitting
-                  ? SizedBox(
-                      width: 16.w,
-                      height: 16.w,
-                      child: const CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Text(
-                      isEditing ? 'Save' : 'Create',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-            ),
-          ],
-        ),
-      ),
+                      _fetchTables(); // Refresh list
+                    } catch (e) {
+                      setState(() => _isLoading = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error saving table: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(
+                    isEditing ? 'Save Changes' : 'Create Table',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
-  void _showToast(String msg, Color color) {
-    HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          msg,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+  Future<void> _deleteTable(int id) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Table?'),
+        content: const Text('Are you sure? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
           ),
-        ),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
+
+    if (confirm != true) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await _supabase.from('restaurant_tables').delete().eq('id', id);
+      _fetchTables();
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Cannot delete table. It might have associated orders. Error: $e',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -235,97 +216,96 @@ class _ManageTablesScreenState extends State<ManageTablesScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'SETTINGS',
-              style: GoogleFonts.inter(
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF8B6914),
-              ),
-            ),
-            Text(
-              'Manage Tables',
-              style: GoogleFonts.inter(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF212529),
-              ),
-            ),
-          ],
+        iconTheme: const IconThemeData(color: Colors.black87),
+        title: const Text(
+          'Manage Tables',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
-        actions: [
-          ElevatedButton.icon(
-            onPressed: () => _showTableDialog(),
-            icon: const Icon(Icons.add_rounded, color: Colors.white, size: 18),
-            label: const Text(
-              'Add Table',
-              style: TextStyle(color: Colors.white),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFB8860B),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8.r),
-              ),
-            ),
-          ),
-          SizedBox(width: 16.w),
-        ],
+        centerTitle: false,
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFFB8860B), // Primary
+        onPressed: () => _showAddTableDialog(),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Add Table',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFFB8860B)),
             )
-          : ListView.builder(
+          : _tables.isEmpty
+          ? const Center(
+              child: Text('No tables configured yet. Add your first table!'),
+            )
+          : ListView.separated(
               padding: EdgeInsets.all(20.w),
               itemCount: _tables.length,
+              separatorBuilder: (_, _) => SizedBox(height: 12.h),
               itemBuilder: (context, index) {
                 final table = _tables[index];
+                final isAvailable = table['is_available'] == true;
+
                 return Container(
-                  margin: EdgeInsets.only(bottom: 12.h),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.circular(16.r),
                     border: Border.all(color: const Color(0xFFE9ECEF)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: ListTile(
                     contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16.w,
-                      vertical: 4.h,
+                      horizontal: 20.w,
+                      vertical: 8.h,
                     ),
                     leading: Container(
-                      padding: EdgeInsets.all(10.w),
+                      padding: EdgeInsets.all(12.w),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F3F5),
-                        borderRadius: BorderRadius.circular(8.r),
+                        color: isAvailable
+                            ? const Color(0xFF10B981).withOpacity(0.1)
+                            : const Color(0xFFEF4444).withOpacity(0.1),
+                        shape: BoxShape.circle,
                       ),
-                      child: const Icon(
-                        Icons.table_bar_rounded,
-                        color: Color(0xFF6C757D),
+                      child: Icon(
+                        Icons.table_restaurant_rounded,
+                        color: isAvailable
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
                       ),
                     ),
                     title: Text(
                       table['name'],
-                      style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
                     ),
-                    subtitle: Text('${table['capacity'] ?? 'Unknown'} Seats'),
+                    subtitle: Text(
+                      'Capacity: ${table['capacity'] ?? 'N/A'} • ${isAvailable ? 'Active' : 'Disabled'}',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
                           icon: const Icon(
                             Icons.edit_rounded,
-                            color: Color(0xFF3B82F6),
+                            color: Colors.blue,
                           ),
-                          onPressed: () => _showTableDialog(tableToEdit: table),
+                          onPressed: () => _showAddTableDialog(table),
                         ),
                         IconButton(
                           icon: const Icon(
                             Icons.delete_rounded,
-                            color: Color(0xFFEF4444),
+                            color: Colors.red,
                           ),
                           onPressed: () => _deleteTable(table['id']),
                         ),

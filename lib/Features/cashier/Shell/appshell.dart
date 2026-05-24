@@ -1,40 +1,46 @@
-// lib/Features/Home/Shell/appshell.dart
-
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-
-// Core Imports
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
-
-// Feature Screens (Adjust these paths if your folder structure changes)
-import 'package:zaytouna_park/Features/admin/Widgets/Facilities/facilities.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
-import 'package:zaytouna_park/Features/cashier/cash_home.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Facilities/facilities.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
+import 'package:zaytouna_park/Features/cashier/cash_home.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
 import 'package:zaytouna_park/Features/kitchen/widgets/menu%20mangement/menumanagementscreen.dart';
 
-// ─── CLEAN WHITE PALETTE ──────────────────────────────────────────────────────────
+// ─── RESPONSIVE BREAKPOINTS ────────────────────────────────────────────────
+class Breakpoints {
+  Breakpoints._();
+  static const double phone = 600;
+  static const double tabletPortrait = 900;
+  static const double tabletLandscape = 1200;
+  static const double wide = 1600;
+
+  static bool isPhone(double w) => w < phone;
+  static bool isTabletPortrait(double w) => w >= phone && w < tabletPortrait;
+  static bool isTabletLandscape(double w) =>
+      w >= tabletPortrait && w < tabletLandscape;
+  static bool isDesktop(double w) => w >= tabletLandscape;
+}
+
 class ShellColors {
   ShellColors._();
   static const bg = Color(0xFFFFFFFF);
   static const sidebarBg = Color(0xFFF8F9FA);
   static const sidebarAccent = Color(0xFFE9ECEF);
-  static const activeBlue = Color(
-    0xFFB8860B,
-  ); // Gold/Amber to match Zaytouna theme
+  static const activeBlue = Color(0xFFB8860B);
   static const textPrimary = Color(0xFF212529);
   static const textSecondary = Color(0xFF6C757D);
   static const textTertiary = Color(0xFFADB5BD);
@@ -63,7 +69,7 @@ class NavMeta {
   final NavTab tab;
   final IconData icon;
   final String label;
-  final String routeName; // ADDED: To check permissions
+  final String routeName;
 
   const NavMeta({
     required this.tab,
@@ -73,7 +79,6 @@ class NavMeta {
   });
 }
 
-// Map each tab to its required route so we can check permissions dynamically
 const _allNavItems = [
   NavMeta(
     tab: NavTab.dashboard,
@@ -155,7 +160,6 @@ const _allNavItems = [
   ),
 ];
 
-// ─── MAIN SHELL ──────────────────────────────────────────────────────────────
 class CashierShellScreen extends StatefulWidget {
   const CashierShellScreen({super.key});
 
@@ -173,17 +177,12 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
     _calculateAllowedTabs();
   }
 
-  // Filter the tabs based on the current user's permissions
   void _calculateAllowedTabs() {
     _allowedTabs = _allNavItems.where((item) {
-      final requiredPerm = AppPermissions.requiredFor(item.routeName);
-      if (requiredPerm == null) return true; // Route is public to all staff
-      return RouteGuard.hasPermission(
-        requiredPerm,
-      ); // Check specific permission
+      final p = AppPermissions.requiredFor(item.routeName);
+      return p == null || RouteGuard.hasPermission(p);
     }).toList();
 
-    // Default to the first allowed tab (usually Dashboard)
     _activeTab = _allowedTabs.isNotEmpty
         ? _allowedTabs.first.tab
         : NavTab.dashboard;
@@ -191,81 +190,83 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ShellColors.bg,
-      drawer: MediaQuery.of(context).size.width < 1024
-          ? Drawer(
-              child: _PremiumSidebar(
-                allowedTabs: _allowedTabs,
-                activeTab: _activeTab,
-                onTab: (t) {
-                  Navigator.pop(context); // Close drawer on mobile
-                  _handleTabSelection(t);
-                },
-                onLogout: () => _confirmLogout(context),
-              ),
-            )
-          : null,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final isWide = constraints.maxWidth >= 1024;
-          final isMedium = constraints.maxWidth >= 700;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        final isPhone = Breakpoints.isPhone(w);
+        final isDesktop = Breakpoints.isDesktop(w); // ≥1200 → full sidebar
+        final showSidebar = !isPhone; // tablet portrait + landscape + desktop
+        final sidebarCollapsed = !isDesktop && !isPhone; // 600–1199 → icon rail
 
-          return Row(
-            children: [
-              if (isWide)
-                _PremiumSidebar(
-                  allowedTabs: _allowedTabs,
-                  activeTab: _activeTab,
-                  onTab: _handleTabSelection,
-                  onLogout: () => _confirmLogout(context),
-                ),
-              Expanded(
-                child: Column(
-                  children: [
-                    _ShellHeader(
-                      activeTab: _activeTab,
-                      allowedTabs: _allowedTabs,
-                      isWide: isWide,
-                      onMenuTap: () => Scaffold.of(context).openDrawer(),
-                    ),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          );
-                        },
-                        child: KeyedSubtree(
-                          key: ValueKey(_activeTab),
-                          child: _buildPage(),
+        return Scaffold(
+          backgroundColor: ShellColors.bg,
+          drawer: isPhone
+              ? Drawer(
+                  child: _PremiumSidebar(
+                    allowedTabs: _allowedTabs,
+                    activeTab: _activeTab,
+                    collapsed: false,
+                    onTab: (t) {
+                      Navigator.pop(context);
+                      _handleTabSelection(t);
+                    },
+                    onLogout: () => _confirmLogout(context),
+                  ),
+                )
+              : null,
+          body: SafeArea(
+            child: Row(
+              children: [
+                if (showSidebar)
+                  _PremiumSidebar(
+                    allowedTabs: _allowedTabs,
+                    activeTab: _activeTab,
+                    collapsed: sidebarCollapsed,
+                    onTab: _handleTabSelection,
+                    onLogout: () => _confirmLogout(context),
+                  ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _ShellHeader(
+                        activeTab: _activeTab,
+                        allowedTabs: _allowedTabs,
+                        isPhone: isPhone,
+                        showMenuButton: isPhone,
+                      ),
+                      Expanded(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 250),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(opacity: animation, child: child),
+                          child: KeyedSubtree(
+                            key: ValueKey(_activeTab),
+                            child: _buildPage(),
+                          ),
                         ),
                       ),
-                    ),
-                    if (!isMedium)
-                      _PremiumBottomNav(
-                        allowedTabs: _allowedTabs,
-                        activeTab: _activeTab,
-                        onTab: _handleTabSelection,
-                      ),
-                  ],
+                      if (isPhone)
+                        _PremiumBottomNav(
+                          allowedTabs: _allowedTabs,
+                          activeTab: _activeTab,
+                          onTab: _handleTabSelection,
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   void _handleTabSelection(NavTab tab) {
     if (tab == NavTab.pos) {
-      // POS should open in full screen on top of the shell
-      Navigator.pushNamed(context, Routes.pos);
+      context.push(Routes.pos);
     } else {
       setState(() => _activeTab = tab);
     }
@@ -275,10 +276,10 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
     switch (_activeTab) {
       case NavTab.dashboard:
         return PremiumCashierHome(
-          onLaunchTerminal: () => Navigator.pushNamed(context, Routes.pos),
+          onLaunchTerminal: () => context.push(Routes.pos),
         );
       case NavTab.pos:
-        return const UpgradedPOS(); // Fallback, normally pushed over the shell
+        return const UpgradedPOS();
       case NavTab.sales:
         return const SalesScreen();
       case NavTab.menu:
@@ -373,14 +374,9 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () async {
+                        Navigator.pop(ctx);
                         await RouteGuard.logout();
-                        if (ctx.mounted) {
-                          Navigator.pushNamedAndRemoveUntil(
-                            ctx,
-                            Routes.login,
-                            (r) => false,
-                          );
-                        }
+                        if (mounted) context.go(Routes.login);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFEF4444),
@@ -409,43 +405,47 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
   }
 }
 
-// ─── COMPONENTS ──────────────────────────────────────────────────────────────
-
+// ─── SIDEBAR (responsive: collapsed icon-rail or full) ─────────────────────
 class _PremiumSidebar extends StatelessWidget {
   final List<NavMeta> allowedTabs;
   final NavTab activeTab;
+  final bool collapsed;
   final ValueChanged<NavTab> onTab;
   final VoidCallback onLogout;
 
   const _PremiumSidebar({
     required this.allowedTabs,
     required this.activeTab,
+    required this.collapsed,
     required this.onTab,
     required this.onLogout,
   });
 
   @override
   Widget build(BuildContext context) {
+    final double width = collapsed ? 80 : 260;
+
     return Container(
-      width: 280.w,
+      width: width,
       decoration: const BoxDecoration(
         color: ShellColors.bg,
         border: Border(right: BorderSide(color: ShellColors.border, width: 1)),
       ),
       child: Column(
         children: [
-          SizedBox(height: 32.h),
-          const _SidebarLogo(),
-          SizedBox(height: 40.h),
+          SizedBox(height: 24.h),
+          _SidebarLogo(collapsed: collapsed),
+          SizedBox(height: 24.h),
           Expanded(
             child: ListView(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
+              padding: EdgeInsets.symmetric(horizontal: collapsed ? 10 : 12),
               physics: const BouncingScrollPhysics(),
               children: allowedTabs
                   .map(
                     (item) => _SidebarItem(
                       meta: item,
                       isActive: activeTab == item.tab,
+                      collapsed: collapsed,
                       onTap: () => onTab(item.tab),
                     ),
                   )
@@ -453,8 +453,11 @@ class _PremiumSidebar extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
-            child: _SidebarLogout(onTap: onLogout),
+            padding: EdgeInsets.symmetric(
+              horizontal: collapsed ? 10 : 12,
+              vertical: 16.h,
+            ),
+            child: _SidebarLogout(collapsed: collapsed, onTap: onLogout),
           ),
         ],
       ),
@@ -463,17 +466,21 @@ class _PremiumSidebar extends StatelessWidget {
 }
 
 class _SidebarLogo extends StatelessWidget {
-  const _SidebarLogo();
+  final bool collapsed;
+  const _SidebarLogo({required this.collapsed});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 16),
       child: Row(
+        mainAxisAlignment: collapsed
+            ? MainAxisAlignment.center
+            : MainAxisAlignment.start,
         children: [
           Container(
-            height: 40.w,
-            width: 40.w,
+            height: 40,
+            width: 40,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFFB8860B), Color(0xFF8B6914)],
@@ -482,24 +489,30 @@ class _SidebarLogo extends StatelessWidget {
             ),
             child: Center(
               child: Text(
-                "Z",
+                'Z',
                 style: GoogleFonts.inter(
                   color: Colors.white,
-                  fontSize: 22.sp,
+                  fontSize: 20.sp,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
           ),
-          SizedBox(width: 12.w),
-          Text(
-            "Zaytouna Park",
-            style: GoogleFonts.inter(
-              fontSize: 18.sp,
-              fontWeight: FontWeight.w600,
-              color: ShellColors.textPrimary,
+          if (!collapsed) ...[
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Text(
+                'Zaytouna Park',
+                style: GoogleFonts.inter(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                  color: ShellColors.textPrimary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -509,17 +522,69 @@ class _SidebarLogo extends StatelessWidget {
 class _SidebarItem extends StatelessWidget {
   final NavMeta meta;
   final bool isActive;
+  final bool collapsed;
   final VoidCallback onTap;
 
   const _SidebarItem({
     required this.meta,
     required this.isActive,
+    required this.collapsed,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
+    final Widget content = Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: collapsed ? 0 : 14,
+        vertical: 12,
+      ),
+      margin: EdgeInsets.only(bottom: 4.h),
+      decoration: BoxDecoration(
+        color: isActive
+            ? ShellColors.activeBlue.withOpacity(0.1)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: collapsed
+          ? Center(
+              child: Icon(
+                meta.icon,
+                color: isActive
+                    ? ShellColors.activeBlue
+                    : ShellColors.textSecondary,
+                size: 22.sp,
+              ),
+            )
+          : Row(
+              children: [
+                Icon(
+                  meta.icon,
+                  color: isActive
+                      ? ShellColors.activeBlue
+                      : ShellColors.textSecondary,
+                  size: 20.sp,
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Text(
+                    meta.label,
+                    style: GoogleFonts.inter(
+                      fontSize: 13.sp,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                      color: isActive
+                          ? ShellColors.activeBlue
+                          : ShellColors.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+    );
+
+    final inkwell = Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
@@ -527,114 +592,98 @@ class _SidebarItem extends StatelessWidget {
           onTap();
         },
         borderRadius: BorderRadius.circular(12.r),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          margin: EdgeInsets.only(bottom: 4.h),
-          decoration: BoxDecoration(
-            color: isActive
-                ? ShellColors.activeBlue.withOpacity(0.1)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                meta.icon,
-                color: isActive
-                    ? ShellColors.activeBlue
-                    : ShellColors.textSecondary,
-                size: 22.sp,
-              ),
-              SizedBox(width: 14.w),
-              Text(
-                meta.label,
-                style: GoogleFonts.inter(
-                  fontSize: 14.sp,
-                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                  color: isActive
-                      ? ShellColors.activeBlue
-                      : ShellColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: content,
       ),
     );
+
+    return collapsed
+        ? Tooltip(message: meta.label, preferBelow: false, child: inkwell)
+        : inkwell;
   }
 }
 
 class _ShellHeader extends StatelessWidget {
   final List<NavMeta> allowedTabs;
   final NavTab activeTab;
-  final bool isWide;
-  final VoidCallback onMenuTap;
+  final bool isPhone;
+  final bool showMenuButton;
 
   const _ShellHeader({
     required this.allowedTabs,
     required this.activeTab,
-    required this.isWide,
-    required this.onMenuTap,
+    required this.isPhone,
+    required this.showMenuButton,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Safely get the active item name, fallback to 'Dashboard' if something goes wrong
     final activeItemLabel = allowedTabs
         .firstWhere((e) => e.tab == activeTab, orElse: () => _allNavItems.first)
         .label;
 
     final user = RouteGuard.user;
+    final fullName = user?.fullName;
+    final firstName = (fullName == null || fullName.trim().isEmpty)
+        ? 'User'
+        : fullName.trim().split(' ').first;
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+      padding: EdgeInsets.symmetric(
+        horizontal: isPhone ? 12 : 24,
+        vertical: isPhone ? 12 : 16,
+      ),
       decoration: const BoxDecoration(
         color: ShellColors.bg,
         border: Border(bottom: BorderSide(color: ShellColors.border, width: 1)),
       ),
       child: Row(
         children: [
-          if (!isWide) ...[
-            IconButton(
-              onPressed: onMenuTap,
-              icon: const Icon(
-                Icons.menu_rounded,
-                color: ShellColors.textPrimary,
+          if (showMenuButton) ...[
+            Builder(
+              builder: (ctx) => IconButton(
+                onPressed: () => Scaffold.of(ctx).openDrawer(),
+                icon: const Icon(
+                  Icons.menu_rounded,
+                  color: ShellColors.textPrimary,
+                ),
               ),
             ),
-            SizedBox(width: 8.w),
+            SizedBox(width: 4.w),
           ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   activeItemLabel,
                   style: GoogleFonts.inter(
-                    fontSize: 24.sp,
+                    fontSize: isPhone ? 18.sp : 22.sp,
                     fontWeight: FontWeight.w600,
                     color: ShellColors.textPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 4.h),
-                Text(
-                  "Zaytouna Park Management System",
-                  style: GoogleFonts.inter(
-                    fontSize: 13.sp,
-                    color: ShellColors.textSecondary,
+                if (!isPhone) ...[
+                  SizedBox(height: 2.h),
+                  Text(
+                    'Zaytouna Park Management System',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.sp,
+                      color: ShellColors.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                ],
               ],
             ),
           ),
           SizedBox(width: 8.w),
           const _HeaderAction(icon: Icons.notifications_none_rounded),
-          SizedBox(width: 12.w),
-          _UserProfile(userName: user?.fullName.split(' ').first ?? 'User'),
+          SizedBox(width: 8.w),
+          _UserProfile(userName: firstName, condensed: isPhone),
         ],
       ),
     );
@@ -653,13 +702,13 @@ class _HeaderAction extends StatelessWidget {
         onTap: () {},
         borderRadius: BorderRadius.circular(10.r),
         child: Container(
-          padding: EdgeInsets.all(10.w),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: ShellColors.surface,
             borderRadius: BorderRadius.circular(10.r),
             border: Border.all(color: ShellColors.border),
           ),
-          child: Icon(icon, size: 20.sp, color: ShellColors.textSecondary),
+          child: Icon(icon, size: 18.sp, color: ShellColors.textSecondary),
         ),
       ),
     );
@@ -668,13 +717,13 @@ class _HeaderAction extends StatelessWidget {
 
 class _UserProfile extends StatelessWidget {
   final String userName;
-
-  const _UserProfile({required this.userName});
+  final bool condensed;
+  const _UserProfile({required this.userName, required this.condensed});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+      padding: EdgeInsets.symmetric(horizontal: condensed ? 4 : 6, vertical: 4),
       decoration: BoxDecoration(
         color: ShellColors.surface,
         borderRadius: BorderRadius.circular(30.r),
@@ -684,29 +733,31 @@ class _UserProfile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
-            radius: 16.r,
+            radius: 14,
             backgroundColor: ShellColors.activeBlue,
             child: Text(
               userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
               style: GoogleFonts.inter(
                 color: Colors.white,
-                fontSize: 12.sp,
+                fontSize: 11.sp,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          SizedBox(width: 8.w),
-          Padding(
-            padding: EdgeInsets.only(right: 12.w),
-            child: Text(
-              userName,
-              style: GoogleFonts.inter(
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-                color: ShellColors.textPrimary,
+          if (!condensed) ...[
+            SizedBox(width: 8.w),
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Text(
+                userName,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w600,
+                  color: ShellColors.textPrimary,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -714,43 +765,65 @@ class _UserProfile extends StatelessWidget {
 }
 
 class _SidebarLogout extends StatelessWidget {
+  final bool collapsed;
   final VoidCallback onTap;
-  const _SidebarLogout({required this.onTap});
+  const _SidebarLogout({required this.collapsed, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
+    final content = Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: collapsed ? 0 : 14,
+        vertical: 12,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEE2E2).withOpacity(0.5),
         borderRadius: BorderRadius.circular(12.r),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFEE2E2).withOpacity(0.5),
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-          child: Row(
-            children: [
-              Icon(
+      ),
+      child: collapsed
+          ? Center(
+              child: Icon(
                 Icons.logout_rounded,
                 color: const Color(0xFFEF4444),
                 size: 20.sp,
               ),
-              SizedBox(width: 14.w),
-              Text(
-                'Sign Out',
-                style: GoogleFonts.inter(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w600,
+            )
+          : Row(
+              children: [
+                Icon(
+                  Icons.logout_rounded,
                   color: const Color(0xFFEF4444),
+                  size: 18.sp,
                 ),
-              ),
-            ],
-          ),
-        ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Text(
+                    'Sign Out',
+                    style: GoogleFonts.inter(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFEF4444),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+    );
+
+    final inkwell = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12.r),
+        child: content,
       ),
     );
+
+    return collapsed
+        ? Tooltip(message: 'Sign Out', preferBelow: false, child: inkwell)
+        : inkwell;
   }
 }
 
@@ -767,69 +840,70 @@ class _PremiumBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determine the best tabs to show on mobile (max 5)
-    final preferredMobileTabs = [
+    const preferredMobileTabs = [
       NavTab.dashboard,
       NavTab.pos,
       NavTab.sales,
       NavTab.menu,
       NavTab.orders,
-      NavTab.analytics,
     ];
-
-    // Only include tabs the user actually has permission to see
     final mobileItems = allowedTabs
         .where((i) => preferredMobileTabs.contains(i.tab))
-        .take(5) // Ensure it never overflows a standard mobile bottom nav
+        .take(5)
         .toList();
 
-    return Container(
-      height: 70.h,
-      decoration: const BoxDecoration(
-        color: ShellColors.bg,
-        border: Border(top: BorderSide(color: ShellColors.border, width: 1)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: mobileItems.map((item) {
-          final isActive = activeTab == item.tab;
-          return Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                onTab(item.tab);
-              },
-              borderRadius: BorderRadius.circular(12.r),
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      item.icon,
-                      color: isActive
-                          ? ShellColors.activeBlue
-                          : ShellColors.textSecondary,
-                      size: 22.sp,
-                    ),
-                    if (isActive) ...[
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: 64.h,
+        decoration: const BoxDecoration(
+          color: ShellColors.bg,
+          border: Border(top: BorderSide(color: ShellColors.border, width: 1)),
+        ),
+        child: Row(
+          children: mobileItems.map((item) {
+            final isActive = activeTab == item.tab;
+            return Expanded(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    onTab(item.tab);
+                  },
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        item.icon,
+                        color: isActive
+                            ? ShellColors.activeBlue
+                            : ShellColors.textSecondary,
+                        size: 22.sp,
+                      ),
                       SizedBox(height: 4.h),
-                      Container(
-                        width: 4.w,
-                        height: 4.h,
-                        decoration: const BoxDecoration(
-                          color: ShellColors.activeBlue,
-                          shape: BoxShape.circle,
+                      Text(
+                        item.label,
+                        style: GoogleFonts.inter(
+                          fontSize: 10.sp,
+                          fontWeight: isActive
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: isActive
+                              ? ShellColors.activeBlue
+                              : ShellColors.textSecondary,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

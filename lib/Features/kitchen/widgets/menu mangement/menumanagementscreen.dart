@@ -18,6 +18,7 @@ class MenuCategory {
 class MenuItemModel {
   final int id;
   final String name;
+  final String? description; // ─── NEW: Added Description ───
   final int categoryId;
   final String categoryName;
   final double price;
@@ -31,6 +32,7 @@ class MenuItemModel {
     required this.categoryId,
     required this.categoryName,
     required this.name,
+    this.description, // ─── NEW ───
     required this.price,
     required this.isAvailable,
     required this.requiresPreparation,
@@ -46,6 +48,7 @@ class MenuItemModel {
           ? json['categories']['name']
           : 'Unknown',
       name: json['name'] as String,
+      description: json['description'] as String?, // ─── NEW ───
       price: (json['price'] as num).toDouble(),
       isAvailable: json['is_available'] as bool? ?? true,
       requiresPreparation: json['requires_preparation'] as bool? ?? false,
@@ -60,6 +63,7 @@ class MenuItemModel {
       categoryId: categoryId,
       categoryName: categoryName,
       name: name,
+      description: description, // ─── NEW ───
       price: price,
       isAvailable: isAvailable ?? this.isAvailable,
       requiresPreparation: requiresPreparation,
@@ -129,8 +133,9 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
 
       final itemsRes = await _supabase
           .from('menu_items')
+          // ─── NEW: Added description to the select query ───
           .select(
-            'id, name, price, is_available, requires_preparation, preparation_time_minutes, image_url, category_id, categories(name)',
+            'id, name, description, price, is_available, requires_preparation, preparation_time_minutes, image_url, category_id, categories(name)',
           )
           .order('name');
 
@@ -547,19 +552,53 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                                                   ),
                                                   const SizedBox(width: 12),
                                                   Expanded(
-                                                    child: Text(
-                                                      item.name,
-                                                      style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Color(
-                                                          0xFF111827,
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          item.name,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                                color: Color(
+                                                                  0xFF111827,
+                                                                ),
+                                                                fontSize: 15,
+                                                              ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
                                                         ),
-                                                        fontSize: 15,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
+                                                        // ─── NEW: Show description in list if available ───
+                                                        if (item.description !=
+                                                                null &&
+                                                            item
+                                                                .description!
+                                                                .isNotEmpty)
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets.only(
+                                                                  top: 2,
+                                                                ),
+                                                            child: Text(
+                                                              item.description!,
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                color: Colors
+                                                                    .grey
+                                                                    .shade500,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                      ],
                                                     ),
                                                   ),
                                                 ],
@@ -753,6 +792,7 @@ class _AddEditItemDialog extends StatefulWidget {
 class _AddEditItemDialogState extends State<_AddEditItemDialog> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameCtrl;
+  late TextEditingController _descCtrl; // ─── NEW: Added controller ───
   late TextEditingController _priceCtrl;
   late TextEditingController _prepTimeCtrl;
   late TextEditingController _imageUrlCtrl;
@@ -765,6 +805,9 @@ class _AddEditItemDialogState extends State<_AddEditItemDialog> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: widget.existingItem?.name ?? '');
+    _descCtrl = TextEditingController(
+      text: widget.existingItem?.description ?? '',
+    ); // ─── NEW ───
     _priceCtrl = TextEditingController(
       text: widget.existingItem?.price.toString() ?? '',
     );
@@ -788,6 +831,7 @@ class _AddEditItemDialogState extends State<_AddEditItemDialog> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _descCtrl.dispose(); // ─── NEW ───
     _priceCtrl.dispose();
     _prepTimeCtrl.dispose();
     _imageUrlCtrl.dispose();
@@ -800,6 +844,10 @@ class _AddEditItemDialogState extends State<_AddEditItemDialog> {
 
     final itemData = {
       'name': _nameCtrl.text.trim(),
+      // ─── NEW: Send description to database ───
+      'description': _descCtrl.text.trim().isEmpty
+          ? null
+          : _descCtrl.text.trim(),
       'price': double.tryParse(_priceCtrl.text) ?? 0.0,
       'category_id': _selectedCatId,
       'image_url': _imageUrlCtrl.text.trim().isEmpty
@@ -894,6 +942,14 @@ class _AddEditItemDialogState extends State<_AddEditItemDialog> {
                       ),
                     ),
                   ],
+                ),
+                // ─── NEW: Description Field in UI ───
+                const SizedBox(height: 16),
+                _buildTextField(
+                  controller: _descCtrl,
+                  label: 'Description (Optional)',
+                  icon: Icons.description_outlined,
+                  maxLines: 3, // Makes the box taller for paragraph entry
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
@@ -1032,20 +1088,29 @@ class _AddEditItemDialogState extends State<_AddEditItemDialog> {
     );
   }
 
+  // ─── UPDATED: Added maxLines parameter for Description field ───
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
     required IconData icon,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    int maxLines = 1,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
+      maxLines: maxLines,
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon, color: Colors.grey),
+        // Align icon to the top if it's a multiline field
+        prefixIcon: Padding(
+          padding: EdgeInsets.only(
+            bottom: maxLines > 1 ? (maxLines - 1) * 20.0 : 0,
+          ),
+          child: Icon(icon, color: Colors.grey),
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: Colors.grey.shade300),

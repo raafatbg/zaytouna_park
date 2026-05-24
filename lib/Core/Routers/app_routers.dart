@@ -1,364 +1,308 @@
-// ignore_for_file: file_names, unnecessary_underscores
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-// --- CORE ---
-import 'package:zaytouna_park/Core/Routers/routes.dart';
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
+import 'package:zaytouna_park/Core/Routers/router_refresh.dart';
+import 'package:zaytouna_park/Core/Routers/routes.dart';
 
-// --- AUTHENTICATION ---
+// Auth
 import 'package:zaytouna_park/Features/Auth/pages/Login/staff_login_page.dart';
+
+// Admin
+import 'package:zaytouna_park/Features/admin/admin_shell/admin_shell.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Facilities/facilities.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
 
-// --- ADMIN SHELL ---
-import 'package:zaytouna_park/Features/admin/admin_shell/admin_shell.dart';
+// Cashier
+import 'package:zaytouna_park/Features/cashier/cash_home.dart';
+import 'package:zaytouna_park/Features/cashier/Shell/appshell.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Tables/manage_tables_page.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Tables/tables.dart';
-
-// --- DASHBOARDS ---
-import 'package:zaytouna_park/Features/kitchen/home_kitchen.dart';
-import 'package:zaytouna_park/Features/cashier/cash_home.dart';
-import 'package:zaytouna_park/Features/cashier/Shell/appshell.dart';
-
-// --- FEATURE SCREENS ---
 import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
+
+// Kitchen
+import 'package:zaytouna_park/Features/kitchen/home_kitchen.dart';
 import 'package:zaytouna_park/Features/kitchen/widgets/menu%20mangement/menumanagementscreen.dart';
+
+// Shared
 import 'package:zaytouna_park/Features/shared/placeholder_screen.dart';
 
-// --- ADDED ---
-
-
 class AppRouter {
-  static final AppRouter _instance = AppRouter._internal();
-  factory AppRouter() => _instance;
-  AppRouter._internal();
+  AppRouter._();
 
-  Route<dynamic> generateRoute(RouteSettings settings) {
-    final routeName = settings.name;
-    final arguments = settings.arguments;
+  static final GoRouter router = GoRouter(
+    initialLocation: Routes.login,
+    refreshListenable: GoRouterRefreshStream(),
+    debugLogDiagnostics: true,
+    redirect: _redirect,
+    errorBuilder: (context, state) =>
+        _ErrorScreen(message: state.error?.toString()),
+    routes: [
+      // ─── AUTH ──────────────────────────────────────────────────────────────
+      GoRoute(
+        path: Routes.login,
+        pageBuilder: (c, s) => _fade(state: s, child: const LoginScreen()),
+      ),
 
-    // WEB BUG FIX:
-    if (routeName == '/' || routeName == '') {
-      return PageRouteBuilder(
-        settings: settings,
-        pageBuilder: (_, __, ___) =>
-            const Scaffold(backgroundColor: Colors.white),
-        transitionDuration: Duration.zero,
-        reverseTransitionDuration: Duration.zero,
-      );
-    }
-
-    debugPrint('🚀 Navigation to: $routeName');
-
-    // 1. Special handling for login route
-    if (routeName == Routes.login) {
-      if (RouteGuard.isAuthenticated) {
-        return _redirectToDashboard();
-      }
-      return _fade(const LoginScreen(), settings);
-    }
-
-    // 2. Protect all other routes
-    if (!RouteGuard.isAuthenticated) {
-      debugPrint('⛔ Not authenticated, redirecting to login');
-      return _redirectToLogin();
-    }
-
-    // Optional Security: Check if user has permission for this route
-    final requiredPermission = AppPermissions.requiredFor(routeName ?? '');
-    if (requiredPermission != null &&
-        !RouteGuard.hasPermission(requiredPermission)) {
-      debugPrint('⛔ Access Denied: User lacks $requiredPermission');
-      return _errorRoute(
-        'You do not have permission to access this page.',
-        settings,
-      );
-    }
-
-    // 3. Handle authenticated routes
-    try {
-      return _handleRoute(routeName, arguments, settings);
-    } catch (e) {
-      debugPrint('❌ Navigation error: $e');
-      return _errorRoute('Navigation error: $e', settings);
-    }
-  }
-
-  Route<dynamic> _handleRoute(
-    String? routeName,
-    Object? arguments,
-    RouteSettings settings,
-  ) {
-    switch (routeName) {
       // ─── DASHBOARDS ────────────────────────────────────────────────────────
-      case Routes.adminDashboard:
-        return _fade(AdminShellScreen(), settings);
-
-      case Routes.cashierDashboard:
-      case Routes.shell:
-        return _fade(const CashierShellScreen(), settings);
-
-      case Routes.kitchenDashboard:
-        return _fade(const KitchenScreen(), settings);
-
-      case Routes.home:
-        return _fade(
-          Builder(
-            builder: (context) => PremiumCashierHome(
-              onLaunchTerminal: () =>
-                  Navigator.of(context).pushNamed(Routes.pos),
+      GoRoute(
+        path: Routes.adminDashboard,
+        pageBuilder: (c, s) => _fade(state: s, child: AdminShellScreen()),
+      ),
+      GoRoute(
+        path: Routes.cashierDashboard,
+        pageBuilder: (c, s) =>
+            _fade(state: s, child: const CashierShellScreen()),
+      ),
+      GoRoute(
+        path: Routes.shell,
+        pageBuilder: (c, s) =>
+            _fade(state: s, child: const CashierShellScreen()),
+      ),
+      GoRoute(
+        path: Routes.kitchenDashboard,
+        pageBuilder: (c, s) => _fade(state: s, child: const KitchenScreen()),
+      ),
+      GoRoute(
+        path: Routes.home,
+        pageBuilder: (c, s) => _fade(
+          state: s,
+          child: Builder(
+            builder: (ctx) => PremiumCashierHome(
+              onLaunchTerminal: () => ctx.push(Routes.pos),
             ),
           ),
-          settings,
-        );
+        ),
+      ),
 
-      // ─── POS & KIOSK ───────────────────────────────────────────────────────
-      case Routes.pos:
-        return _scale(const UpgradedPOS(), settings);
+      // ─── POS ───────────────────────────────────────────────────────────────
+      GoRoute(
+        path: Routes.pos,
+        pageBuilder: (c, s) => _scale(state: s, child: const UpgradedPOS()),
+      ),
 
-      // ─── VENUE MANAGEMENT ──────────────────────────────────────────────────
-      case Routes.bookings:
-        return _slideRight(
-          const PlaceholderScreen(
+      // ─── VENUE ─────────────────────────────────────────────────────────────
+      GoRoute(
+        path: Routes.bookings,
+        pageBuilder: (c, s) => _slide(
+          state: s,
+          child: const PlaceholderScreen(
             title: 'Sports Bookings',
             message: 'Manage Football and Padel court schedules.',
             icon: Icons.sports_soccer_rounded,
           ),
-          settings,
-        );
-
-      case Routes.playground:
-        return _slideRight(
-          const PlaceholderScreen(
+        ),
+      ),
+      GoRoute(
+        path: Routes.playground,
+        pageBuilder: (c, s) => _slide(
+          state: s,
+          child: const PlaceholderScreen(
             title: 'Playground',
             message: 'Entry passes and Kids Zone management.',
             icon: Icons.child_care_rounded,
           ),
-          settings,
-        );
-
-      // FIX: Floor Plan is now pointing directly to TablesPage instead of PlaceholderScreen
-      case Routes.tables:
-        return _slideRight(const FloorPlanScreen(), settings);
-
-      case Routes.manageTables:
-        return _slideRight(const ManageTablesScreen(), settings);
-
-      case Routes.facilities:
-        return _slideRight(const FacilitiesScreen(), settings);
+        ),
+      ),
+      GoRoute(
+        path: Routes.tables,
+        pageBuilder: (c, s) => _slide(state: s, child: const TablesPage()),
+      ),
+      GoRoute(
+        path: Routes.manageTables,
+        pageBuilder: (c, s) =>
+            _slide(state: s, child: const ManageTablesPage()),
+      ),
+      GoRoute(
+        path: Routes.facilities,
+        pageBuilder: (c, s) =>
+            _slide(state: s, child: const FacilitiesScreen()),
+      ),
 
       // ─── INVENTORY & BACK OFFICE ───────────────────────────────────────────
-      case Routes.inventory:
-        return _slideRight(const InventoryScreen(), settings);
-
-      case Routes.categories:
-        return _slideRight(const CategoryScreen(), settings);
-
-      case Routes.suppliers:
-        return _slideRight(const SuppliersScreen(), settings);
-
-      case Routes.menu:
-        return _slideRight(const MenuManagementScreen(), settings);
+      GoRoute(
+        path: Routes.inventory,
+        pageBuilder: (c, s) => _slide(state: s, child: const InventoryScreen()),
+      ),
+      GoRoute(
+        path: Routes.categories,
+        pageBuilder: (c, s) => _slide(state: s, child: const CategoryScreen()),
+      ),
+      GoRoute(
+        path: Routes.suppliers,
+        pageBuilder: (c, s) => _slide(state: s, child: const SuppliersScreen()),
+      ),
+      GoRoute(
+        path: Routes.menu,
+        pageBuilder: (c, s) =>
+            _slide(state: s, child: const MenuManagementScreen()),
+      ),
 
       // ─── SALES & FINANCE ───────────────────────────────────────────────────
-      case Routes.orders:
-        return _slideRight(const SalesScreen(), settings);
-
-      case Routes.sales:
-        return _slideRight(
-          const SalesScreen(),
-          settings,
-        );
-
-      case Routes.customers:
-        return _slideRight(const CustomersScreen(), settings);
-
-      case Routes.expenses:
-        return _slideRight(const ExpensesScreen(), settings);
-
-      case Routes.reports:
-      case Routes.salesReport:
-        return _slideRight(const AnalyticsScreen(), settings);
-
+      GoRoute(
+        path: Routes.orders,
+        pageBuilder: (c, s) => _slide(state: s, child: const OrdersScreen()),
+      ),
+      GoRoute(
+        path: Routes.sales,
+        pageBuilder: (c, s) => _slide(state: s, child: const SalesScreen()),
+      ),
+      GoRoute(
+        path: Routes.customers,
+        pageBuilder: (c, s) => _slide(state: s, child: const CustomersScreen()),
+      ),
+      GoRoute(
+        path: Routes.expenses,
+        pageBuilder: (c, s) => _slide(state: s, child: const ExpensesScreen()),
+      ),
+      GoRoute(
+        path: Routes.reports,
+        pageBuilder: (c, s) => _slide(state: s, child: const AnalyticsScreen()),
+      ),
+      GoRoute(
+        path: Routes.salesReport,
+        pageBuilder: (c, s) => _slide(state: s, child: const AnalyticsScreen()),
+      ),
 
       // ─── SYSTEM ────────────────────────────────────────────────────────────
-      case Routes.settings:
-        return _slideRight(
-          const SettingsScreen(),
-          settings,
-        );
-
-      case Routes.profile:
-        return _slideRight(
-          const PlaceholderScreen(
+      GoRoute(
+        path: Routes.settings,
+        pageBuilder: (c, s) => _slide(state: s, child: const SettingsScreen()),
+      ),
+      GoRoute(
+        path: Routes.profile,
+        pageBuilder: (c, s) => _slide(
+          state: s,
+          child: const PlaceholderScreen(
             title: 'Staff Profile',
             icon: Icons.person_pin_rounded,
           ),
-          settings,
-        );
+        ),
+      ),
+    ],
+  );
 
-      case Routes.notFound:
-        return _errorRoute('Page not found', settings);
+  // ─── REDIRECT ────────────────────────────────────────────────────────────
+  static String? _redirect(BuildContext context, GoRouterState state) {
+    final loggedIn = RouteGuard.isAuthenticated;
+    final loc = state.matchedLocation;
+    final isAuthRoute = loc == Routes.login || loc == Routes.forgotPassword;
 
-      default:
-        return _errorRoute('Route $routeName not found', settings);
+    if (!loggedIn && !isAuthRoute) return Routes.login;
+    if (loggedIn && isAuthRoute) return _dashboardForCurrentRole();
+
+    final required = AppPermissions.requiredFor(loc);
+    if (required != null && !RouteGuard.hasPermission(required)) {
+      return _dashboardForCurrentRole();
     }
+
+    return null;
   }
 
-  // ─── REDIRECT HELPERS ──────────────────────────────────────────────────────
-
-  Route<dynamic> _redirectToDashboard() {
+  static String _dashboardForCurrentRole() {
     final user = RouteGuard.user;
-
-    if (user == null) return _redirectToLogin();
-
-    Widget targetPage;
-    String targetRoute;
-
+    if (user == null) return Routes.login;
     switch (user.role.toLowerCase()) {
       case 'admin':
-        targetPage = AdminShellScreen();
-        targetRoute = Routes.adminDashboard;
-        break;
+      case 'manager':
+        return Routes.adminDashboard;
       case 'kitchen':
       case 'chef':
-        targetPage = const KitchenScreen();
-        targetRoute = Routes.kitchenDashboard;
-        break;
-      case 'cashier':
+        return Routes.kitchenDashboard;
       default:
-        targetPage = const CashierShellScreen();
-        targetRoute = Routes.cashierDashboard;
-        break;
+        return Routes.cashierDashboard;
     }
-
-    return PageRouteBuilder(
-      settings: RouteSettings(name: targetRoute),
-      pageBuilder: (_, __, ___) => targetPage,
-      transitionDuration: Duration.zero,
-      reverseTransitionDuration: Duration.zero,
-    );
   }
 
-  Route<dynamic> _redirectToLogin() {
-    return PageRouteBuilder(
-      settings: const RouteSettings(name: Routes.login),
-      pageBuilder: (_, __, ___) => const LoginScreen(),
-      transitionDuration: Duration.zero,
-      reverseTransitionDuration: Duration.zero,
-    );
-  }
+  // ─── TRANSITIONS ─────────────────────────────────────────────────────────
+  static Page<dynamic> _fade({
+    required GoRouterState state,
+    required Widget child,
+  }) => CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 300),
+    transitionsBuilder: (_, anim, _, c) =>
+        FadeTransition(opacity: anim, child: c),
+  );
 
-  Route<dynamic> _errorRoute(String message, RouteSettings settings) {
-    return MaterialPageRoute(
-      settings: settings,
-      builder: (context) => Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline, size: 64, color: Colors.red),
-                const SizedBox(height: 16),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(
-                    context,
-                  ).pushNamedAndRemoveUntil(Routes.login, (route) => false),
-                  child: const Text('Go to Login'),
-                ),
-              ],
-            ),
+  static Page<dynamic> _slide({
+    required GoRouterState state,
+    required Widget child,
+  }) => CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 300),
+    transitionsBuilder: (_, anim, _, c) {
+      final offset = anim.drive(
+        Tween(
+          begin: const Offset(1, 0),
+          end: Offset.zero,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
+      );
+      return SlideTransition(position: offset, child: c);
+    },
+  );
+
+  static Page<dynamic> _scale({
+    required GoRouterState state,
+    required Widget child,
+  }) => CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 300),
+    transitionsBuilder: (_, anim, _, c) {
+      final scale = anim.drive(
+        Tween(
+          begin: 0.9,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.fastOutSlowIn)),
+      );
+      return ScaleTransition(
+        scale: scale,
+        child: FadeTransition(opacity: anim, child: c),
+      );
+    },
+  );
+}
+
+class _ErrorScreen extends StatelessWidget {
+  final String? message;
+  const _ErrorScreen({this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                message ?? 'Page not found',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => context.go(Routes.login),
+                child: const Text('Go to Login'),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
-
-  // ─── ANIMATIONS ────────────────────────────────────────────────────────────
-
-  PageRouteBuilder _fade(Widget page, RouteSettings settings) =>
-      PageRouteBuilder(
-        settings: settings,
-        pageBuilder: (_, __, ___) => page,
-        transitionsBuilder: (_, anim, __, child) =>
-            FadeTransition(opacity: anim, child: child),
-        transitionDuration: const Duration(milliseconds: 300),
-      );
-
-  PageRouteBuilder _slideRight(Widget page, RouteSettings settings) =>
-      PageRouteBuilder(
-        settings: settings,
-        pageBuilder: (_, __, ___) => page,
-        transitionsBuilder: (_, anim, __, child) {
-          final offset = anim.drive(
-            Tween(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).chain(CurveTween(curve: Curves.easeOutCubic)),
-          );
-          return SlideTransition(position: offset, child: child);
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      );
-
-  PageRouteBuilder _scale(Widget page, RouteSettings settings) =>
-      PageRouteBuilder(
-        settings: settings,
-        pageBuilder: (_, __, ___) => page,
-        transitionsBuilder: (_, anim, __, child) {
-          final scale = anim.drive(
-            Tween(
-              begin: 0.9,
-              end: 1.0,
-            ).chain(CurveTween(curve: Curves.fastOutSlowIn)),
-          );
-          return ScaleTransition(
-            scale: scale,
-            child: FadeTransition(opacity: anim, child: child),
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 300),
-      );
-}
-
-// ─── NAVIGATION EXTENSION ────────────────────────────────────────────────────
-extension NavigationExtension on BuildContext {
-  void pushNamed(String routeName, {Object? arguments}) {
-    Navigator.pushNamed(this, routeName, arguments: arguments);
-  }
-
-  void pushReplacementNamed(String routeName, {Object? arguments}) {
-    Navigator.pushReplacementNamed(this, routeName, arguments: arguments);
-  }
-
-  void pushNamedAndRemoveUntil(String routeName, {Object? arguments}) {
-    Navigator.pushNamedAndRemoveUntil(
-      this,
-      routeName,
-      (route) => false,
-      arguments: arguments,
-    );
-  }
-
-  void popUntil(String routeName) {
-    Navigator.popUntil(this, ModalRoute.withName(routeName));
-  }
-
-  bool canPop() => Navigator.canPop(this);
-
-  void pop<T extends Object?>([T? result]) => Navigator.pop(this, result);
 }
