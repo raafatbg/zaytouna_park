@@ -8,6 +8,7 @@ import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.d
 
 // 👇 UNCOMMENTED AND FIXED IMPORT
 import 'package:zaytouna_park/Features/cashier/Utils/receipt_printer.dart';
+import 'package:zaytouna_park/Core/Routers/routes.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  MODELS
@@ -235,6 +236,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
       ),
       child: Row(
         children: [
+          // Back to Dashboard
+          IconButton(
+            onPressed: () => Navigator.pushNamedAndRemoveUntil(
+              context,
+              Routes.cashierDashboard,
+              (r) => false,
+            ),
+            icon: Icon(Icons.arrow_back_rounded, color: primaryBlue),
+          ),
+          SizedBox(width: 8.w),
           Icon(Icons.receipt_long_rounded, color: primaryBlue, size: 28.sp),
           SizedBox(width: 12.w),
           Text(

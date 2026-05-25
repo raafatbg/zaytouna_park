@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:zaytouna_park/Core/Routers/routes.dart';
 
 // Assuming ZaytounaColors and ZaytounaTypography are imported here
 // import 'package:zaytouna_park/Path/To/Your/Zaytouna_Theme.dart';
@@ -214,6 +215,14 @@ class _ManageTablesPageState extends State<ManageTablesPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF6C757D)),
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            Routes.cashierDashboard,
+            (r) => false,
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),

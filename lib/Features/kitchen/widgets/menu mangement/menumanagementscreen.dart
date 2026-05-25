@@ -1,5 +1,6 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
 
+import 'dart:ui'; // Added for PointerDeviceKind (mouse dragging)
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -90,6 +91,9 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
   List<MenuItemModel> _filteredItems = [];
   List<MenuCategory> _categories = [];
 
+  // NEW: State variable to track the currently selected category filter
+  int? _selectedFilterCatId;
+
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -105,20 +109,21 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
     super.dispose();
   }
 
+  // UPDATED: Now filters by BOTH search text and selected category
   void _filterItems() {
     final query = _searchController.text.toLowerCase();
     setState(() {
-      if (query.isEmpty) {
-        _filteredItems = List.from(_menuItems);
-      } else {
-        _filteredItems = _menuItems
-            .where(
-              (item) =>
-                  item.name.toLowerCase().contains(query) ||
-                  item.categoryName.toLowerCase().contains(query),
-            )
-            .toList();
-      }
+      _filteredItems = _menuItems.where((item) {
+        final matchesSearch =
+            query.isEmpty ||
+            item.name.toLowerCase().contains(query) ||
+            item.categoryName.toLowerCase().contains(query);
+        final matchesCategory =
+            _selectedFilterCatId == null ||
+            item.categoryId == _selectedFilterCatId;
+
+        return matchesSearch && matchesCategory;
+      }).toList();
     });
   }
 
@@ -417,6 +422,9 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
             ),
           ),
 
+          // ─── CATEGORY FILTER BAR ───
+          _buildCategoryFilterBar(),
+
           // ─── DATA TABLE AREA ───
           Expanded(
             child: _isLoading
@@ -424,7 +432,7 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                     child: CircularProgressIndicator(color: Color(0xFF2563EB)),
                   )
                 : Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -744,6 +752,87 @@ class _MenuManagementScreenState extends State<MenuManagementScreen> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─── NEW: CATEGORY FILTER UI ───
+  Widget _buildCategoryFilterBar() {
+    if (_categories.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20.0),
+      child: SizedBox(
+        height: 38,
+        // Using ScrollConfiguration allows mouse dragging on web/desktop
+        child: ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(
+            dragDevices: {
+              PointerDeviceKind.touch,
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.trackpad,
+            },
+          ),
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            children: [
+              _buildCategoryChip('All Categories', null),
+              ..._categories.map((c) => _buildCategoryChip(c.name, c.id)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryChip(String label, int? categoryId) {
+    final isSelected = _selectedFilterCatId == categoryId;
+    return Padding(
+      padding: const EdgeInsets.only(right: 12.0),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedFilterCatId = categoryId;
+            _filterItems();
+          });
+        },
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF2563EB)
+                  : Colors.grey.shade300,
+              width: 1.5,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              fontSize: 13,
+              color: isSelected ? Colors.white : Colors.grey.shade600,
+            ),
+          ),
+        ),
       ),
     );
   }

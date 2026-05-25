@@ -198,6 +198,7 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
         final showSidebar = !isPhone; // tablet portrait + landscape + desktop
         final sidebarCollapsed = !isDesktop && !isPhone; // 600–1199 → icon rail
 
+<<<<<<< HEAD
         return Scaffold(
           backgroundColor: ShellColors.bg,
           drawer: isPhone
@@ -245,6 +246,41 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
                             key: ValueKey(_activeTab),
                             child: _buildPage(),
                           ),
+=======
+          return Row(
+            children: [
+              if (isWide)
+                _PremiumSidebar(
+                  allowedTabs: _allowedTabs,
+                  activeTab: _activeTab,
+                  onTab: _handleTabSelection,
+                  onLogout: () => _confirmLogout(context),
+                ),
+              Expanded(
+                child: Column(
+                  children: [
+                    _ShellHeader(
+                      activeTab: _activeTab,
+                      allowedTabs: _allowedTabs,
+                      isWide: isWide,
+                      onMenuTap: () => Scaffold.of(context).openDrawer(),
+                      onBackToDashboard: () => setState(() => _activeTab = NavTab.dashboard),
+                    ),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          );
+                        },
+                        child: KeyedSubtree(
+                          key: ValueKey(_activeTab),
+                          child: _buildPage(),
+>>>>>>> d5c747211cc5e5e8e8bab16f4e398763a92e6119
                         ),
                       ),
                       if (isPhone)
@@ -605,14 +641,26 @@ class _SidebarItem extends StatelessWidget {
 class _ShellHeader extends StatelessWidget {
   final List<NavMeta> allowedTabs;
   final NavTab activeTab;
+<<<<<<< HEAD
   final bool isPhone;
   final bool showMenuButton;
+=======
+  final bool isWide;
+  final VoidCallback onMenuTap;
+  final VoidCallback? onBackToDashboard;
+>>>>>>> d5c747211cc5e5e8e8bab16f4e398763a92e6119
 
   const _ShellHeader({
     required this.allowedTabs,
     required this.activeTab,
+<<<<<<< HEAD
     required this.isPhone,
     required this.showMenuButton,
+=======
+    required this.isWide,
+    required this.onMenuTap,
+    this.onBackToDashboard,
+>>>>>>> d5c747211cc5e5e8e8bab16f4e398763a92e6119
   });
 
   @override
@@ -650,6 +698,18 @@ class _ShellHeader extends StatelessWidget {
             ),
             SizedBox(width: 4.w),
           ],
+          // Show Back button when not on dashboard
+          if (activeTab != NavTab.dashboard)
+            IconButton(
+              onPressed: onBackToDashboard ?? () {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  Routes.cashierDashboard,
+                  (r) => false,
+                );
+              },
+              icon: const Icon(Icons.arrow_back_rounded, color: ShellColors.textSecondary),
+            ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

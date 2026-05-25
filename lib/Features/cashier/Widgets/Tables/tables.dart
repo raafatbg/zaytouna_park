@@ -61,6 +61,14 @@ class _TablesPageState extends State<TablesPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9), // bg
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF6C757D)),
+          onPressed: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            Routes.cashierDashboard,
+            (r) => false,
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: false,
