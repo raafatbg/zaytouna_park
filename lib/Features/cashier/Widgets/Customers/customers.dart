@@ -1,48 +1,47 @@
-// lib/Features/Customers/customers_screen.dart
-// Zaytouna POS - Customers Screen (Matching Inventory/Expenses Design)
+// lib/Features/cashier/Widgets/Customers/customers_screen.dart
+// Zaytouna POS — Customers Screen (gold + Inter, with real order history)
 
 // ignore_for_file: deprecated_member_use, avoid_print
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  LIGHT THEME PALETTE (Matching Inventory/Expenses)
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── PALETTE (gold, matches terminal/orders/dashboard) ────────────────────
 class CustomerColors {
   CustomerColors._();
 
-  static const bg = Color(0xFFF5F6F8);
+  static const bg = Color(0xFFFAFAF7);
   static const surface = Color(0xFFFFFFFF);
-  static const surface2 = Color(0xFFF0F2F5);
-  static const surface3 = Color(0xFFE8EBF0);
-  static const border = Color(0xFFE2E5EA);
+  static const surface2 = Color(0xFFF5F5F0);
+  static const surface3 = Color(0xFFEDEDE5);
+  static const border = Color(0xFFE5E7EB);
 
-  static const text = Color(0xFF1A1D26);
-  static const textSecondary = Color(0xFF6B7280);
-  static const textMuted = Color(0xFF9CA3AF);
+  static const text = Color(0xFF0A0F0D);
+  static const textSecondary = Color(0xFF64748B);
+  static const textMuted = Color(0xFF94A3B8);
   static const textDim = Color(0xFFCBD5E1);
 
-  static const green = Color(0xFF22C55E);
-  static const greenLight = Color(0xFFDCFCE7);
-  static const greenDim = Color(0x1A22C55E);
+  // PRIMARY = ZAYTOUNA GOLD (kept named `blue` so existing refs still work)
+  static const blue = Color(0xFFB8860B);
+  static const blueLight = Color(0xFFFFF7DB);
+  static const blueDim = Color(0x1AB8860B);
 
-  static const red = Color(0xFFEF4444);
+  static const green = Color(0xFF059669);
+  static const greenLight = Color(0xFFD1FAE5);
+  static const greenDim = Color(0x1A059669);
+
+  static const red = Color(0xFFDC2626);
   static const redLight = Color(0xFFFEE2E2);
-  static const redDim = Color(0x1FEF4444);
+  static const redDim = Color(0x1FDC2626);
 
-  static const blue = Color(0xFF3B82F6);
-  static const blueLight = Color(0xFFDBEAFE);
-  static const blueDim = Color(0x1A3B82F6);
-
-  static const orange = Color(0xFFF97316);
-  static const orangeLight = Color(0xFFFFEDD5);
-  static const orangeDim = Color(0x1AF97316);
+  static const orange = Color(0xFFD97706);
+  static const orangeLight = Color(0xFFFEF3C7);
+  static const orangeDim = Color(0x1AD97706);
 
   static const yellow = Color(0xFFEAB308);
   static const yellowLight = Color(0xFFFEF9C3);
@@ -60,21 +59,19 @@ class CustomerColors {
   static const pinkLight = Color(0xFFFCE7F3);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  FONTS (Matching Inventory/Expenses)
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── FONTS (Inter + tabular figures) ──────────────────────────────────────
 class CustomerFonts {
   CustomerFonts._();
 
   static TextStyle display(
     double size, {
-    FontWeight w = FontWeight.w700,
+    FontWeight w = FontWeight.w800,
     Color? color,
-  }) => GoogleFonts.dmSerifDisplay(
+  }) => GoogleFonts.inter(
     fontSize: size,
     fontWeight: w,
     color: color ?? CustomerColors.text,
+    letterSpacing: -0.3,
   );
 
   static TextStyle sans(
@@ -89,26 +86,24 @@ class CustomerFonts {
 
   static TextStyle mono(
     double size, {
-    FontWeight w = FontWeight.w400,
+    FontWeight w = FontWeight.w600,
     Color? color,
-  }) => GoogleFonts.jetBrainsMono(
+  }) => GoogleFonts.inter(
     fontSize: size,
     fontWeight: w,
     color: color ?? CustomerColors.text,
+    letterSpacing: -0.2,
+    fontFeatures: const [FontFeature.tabularFigures()],
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  MODELS
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── MODELS ───────────────────────────────────────────────────────────────
 class LedgerEntry {
   final String id;
-  final String type;
+  final String type; // 'purchase' | 'payment'
   final double amount;
   final String note;
   final DateTime date;
-
   LedgerEntry({
     required this.id,
     required this.type,
@@ -144,10 +139,10 @@ class Customer {
     List<LedgerEntry>? ledger,
     Color? color,
   }) : ledger = ledger ?? [],
-       color = color ?? _getRandomColor(id);
+       color = color ?? _avatarColor(id);
 
-  static Color _getRandomColor(String id) {
-    final colors = [
+  static Color _avatarColor(String id) {
+    const palette = [
       CustomerColors.blue,
       CustomerColors.green,
       CustomerColors.orange,
@@ -157,173 +152,24 @@ class Customer {
       CustomerColors.red,
       CustomerColors.yellow,
     ];
-    return colors[id.hashCode.abs() % colors.length];
+    return palette[id.hashCode.abs() % palette.length];
   }
 
   double get totalPurchases => ledger
       .where((e) => e.type == 'purchase')
       .fold(0.0, (s, e) => s + e.amount);
-
   double get totalPayments => ledger
       .where((e) => e.type == 'payment')
       .fold(0.0, (s, e) => s + e.amount);
-
   double get balance => totalPurchases - totalPayments;
-
   int get transactionCount => ledger.length;
+  int get orderCount => ledger.where((e) => e.type == 'purchase').length;
+  bool get isSettled => balance.abs() < 0.005;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  MOCK DATA
-// ─────────────────────────────────────────────────────────────────────────────
-
-final _mockCustomers = <Customer>[
-  Customer(
-    id: 'C001',
-    name: 'Alice Martin',
-    phone: '+1 555 010 1234',
-    email: 'alice@example.com',
-    createdAt: DateTime(2024, 1, 12),
-    joinDate: DateTime(2024, 1, 12),
-    loyaltyPoints: 0,
-    totalSpent: 0.0,
-    ledger: [
-      LedgerEntry(
-        id: 'L001',
-        type: 'purchase',
-        amount: 4820.50,
-        note: 'Invoice #101 - Catering Event',
-        date: DateTime(2024, 3, 1),
-      ),
-      LedgerEntry(
-        id: 'L002',
-        type: 'payment',
-        amount: 4700.50,
-        note: 'Partial payment - Feb',
-        date: DateTime(2024, 3, 10),
-      ),
-    ],
-  ),
-  Customer(
-    id: 'C002',
-    name: 'Bob Johnson',
-    phone: '+1 555 020 5678',
-    email: 'bob@example.com',
-    createdAt: DateTime(2024, 3, 5),
-    joinDate: DateTime(2024, 3, 5),
-    loyaltyPoints: 0,
-    totalSpent: 0.0,
-    ledger: [
-      LedgerEntry(
-        id: 'L003',
-        type: 'purchase',
-        amount: 1340.00,
-        note: 'Invoice #102',
-        date: DateTime(2024, 3, 8),
-      ),
-      LedgerEntry(
-        id: 'L004',
-        type: 'payment',
-        amount: 1340.00,
-        note: 'Paid in full',
-        date: DateTime(2024, 3, 15),
-      ),
-    ],
-  ),
-  Customer(
-    id: 'C003',
-    name: 'Diana Chen',
-    phone: '+1 555 030 9012',
-    email: 'diana.chen@example.com',
-    createdAt: DateTime(2024, 2, 18),
-    joinDate: DateTime(2024, 2, 18),
-    loyaltyPoints: 0,
-    totalSpent: 0.0,
-    ledger: [
-      LedgerEntry(
-        id: 'L005',
-        type: 'purchase',
-        amount: 2350.75,
-        note: 'Invoice #103 - Corporate Lunch',
-        date: DateTime(2024, 2, 20),
-      ),
-      LedgerEntry(
-        id: 'L006',
-        type: 'purchase',
-        amount: 890.25,
-        note: 'Invoice #107 - Additional items',
-        date: DateTime(2024, 3, 5),
-      ),
-      LedgerEntry(
-        id: 'L007',
-        type: 'payment',
-        amount: 1500.00,
-        note: 'Deposit',
-        date: DateTime(2024, 2, 22),
-      ),
-    ],
-  ),
-  Customer(
-    id: 'C004',
-    name: 'Ethan Williams',
-    phone: '+1 555 040 3456',
-    email: 'ethan.w@example.com',
-    createdAt: DateTime(2024, 3, 1),
-    joinDate: DateTime(2024, 3, 1),
-    loyaltyPoints: 0,
-    totalSpent: 0.0,
-    ledger: [
-      LedgerEntry(
-        id: 'L008',
-        type: 'purchase',
-        amount: 567.80,
-        note: 'Invoice #108',
-        date: DateTime(2024, 3, 12),
-      ),
-    ],
-  ),
-  Customer(
-    id: 'C005',
-    name: 'Fatima Al-Rashid',
-    phone: '+1 555 050 7890',
-    email: 'fatima@example.com',
-    createdAt: DateTime(2024, 1, 25),
-    joinDate: DateTime(2024, 1, 25),
-    loyaltyPoints: 0,
-    totalSpent: 0.0,
-    ledger: [
-      LedgerEntry(
-        id: 'L009',
-        type: 'purchase',
-        amount: 3450.00,
-        note: 'Invoice #095 - Wedding Reception',
-        date: DateTime(2024, 2, 14),
-      ),
-      LedgerEntry(
-        id: 'L010',
-        type: 'payment',
-        amount: 3450.00,
-        note: 'Full payment',
-        date: DateTime(2024, 2, 14),
-      ),
-      LedgerEntry(
-        id: 'L011',
-        type: 'purchase',
-        amount: 780.00,
-        note: 'Invoice #110',
-        date: DateTime(2024, 3, 18),
-      ),
-    ],
-  ),
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  CUSTOMERS SCREEN (OPTIMIZED)
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── CUSTOMERS SCREEN ─────────────────────────────────────────────────────
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
-
   @override
   State<CustomersScreen> createState() => _CustomersScreenState();
 }
@@ -336,8 +182,8 @@ class _CustomersScreenState extends State<CustomersScreen> {
   List<Customer> _cachedFiltered = [];
   String _searchQuery = '';
   Customer? _selected;
+  bool _loading = true;
 
-  // Color shortcuts
   Color get bg => CustomerColors.bg;
   Color get surface => CustomerColors.surface;
   Color get surface2 => CustomerColors.surface2;
@@ -361,54 +207,151 @@ class _CustomersScreenState extends State<CustomersScreen> {
   }
 
   Future<void> _loadCustomers() async {
+    setState(() => _loading = true);
     try {
       final data = await _supabase
           .from('customers')
-          .select('id, name, email, phone, loyalty_points');
+          .select(
+            'id, name, email, phone, loyalty_points, total_spent, created_at',
+          )
+          .order('created_at', ascending: false);
+
       final customers = <Customer>[];
-      for (var cust in data) {
+      for (final c in data) {
+        final name = c['name'] as String?;
+        if (name == null || name.trim().isEmpty) continue;
         customers.add(
           Customer(
-            id: cust['id'].toString(),
-            name: cust['name'],
-            email: cust['email'] ?? '',
-            phone: cust['phone'] ?? '',
+            id: c['id'].toString(),
+            name: name,
+            email: c['email'] ?? '',
+            phone: c['phone'] ?? '',
             createdAt: DateTime.parse(
-              cust['created_at'] ?? DateTime.now().toIso8601String(),
+              c['created_at'] ?? DateTime.now().toIso8601String(),
             ),
-            loyaltyPoints: (cust['loyalty_points'] as num?)?.toInt() ?? 0,
-            totalSpent: (cust['total_spent'] as num?)?.toDouble() ?? 0.0,
-            lastVisit: cust['last_visit'] != null
-                ? DateTime.parse(cust['last_visit'])
-                : null,
+            loyaltyPoints: (c['loyalty_points'] as num?)?.toInt() ?? 0,
+            totalSpent: (c['total_spent'] as num?)?.toDouble() ?? 0.0,
+            lastVisit: null,
             joinDate: DateTime.parse(
-              cust['created_at'] ?? DateTime.now().toIso8601String(),
+              c['created_at'] ?? DateTime.now().toIso8601String(),
             ),
           ),
         );
       }
 
+      // Pull real order history into each customer's ledger.
+      await _loadOrdersInto(customers);
+
       if (mounted) {
         setState(() {
           _customers = customers;
           _recalculateFiltered();
+          _loading = false;
         });
       }
     } catch (e) {
       print('Error loading customers: $e');
-      // Fallback to mock data
       if (mounted) {
         setState(() {
-          _customers = List.from(_mockCustomers);
+          _customers = [];
           _recalculateFiltered();
+          _loading = false;
         });
+        _showToast('Could not load customers: $e', CustomerColors.red);
       }
     }
   }
 
-  void _onSearchChanged() {
-    _updateSearch(_searchCtrl.text);
+  /// Pulls every non-voided order linked to any of these customers and turns
+  /// each one into ledger entries: a "purchase" for the full order total and
+  /// a "payment" for whatever has been paid (0 if unpaid).
+  /// balance = purchases − payments. 0 ⇒ Settled, > 0 ⇒ Owed.
+  Future<void> _loadOrdersInto(List<Customer> customers) async {
+    if (customers.isEmpty) return;
+    final ids = customers.map((c) => c.id).toList();
+
+    try {
+      final orders = await _supabase
+          .from('orders')
+          .select()
+          .inFilter('customer_id', ids)
+          .order('created_at', ascending: true);
+
+      final byCustomer = <String, Customer>{for (final c in customers) c.id: c};
+
+      for (final o in orders) {
+        final cid = o['customer_id']?.toString();
+        if (cid == null) continue;
+        final cust = byCustomer[cid];
+        if (cust == null) continue;
+
+        // Skip voided/cancelled under either column name
+        final status = (o['order_status'] ?? o['status'])
+            ?.toString()
+            .toLowerCase();
+        if (status == 'voided' ||
+            status == 'cancelled' ||
+            status == 'canceled') {
+          continue;
+        }
+
+        // Defensive: real total column name varies across deployments
+        final total =
+            (o['total'] as num?)?.toDouble() ??
+            (o['total_amount'] as num?)?.toDouble() ??
+            (o['grand_total'] as num?)?.toDouble() ??
+            (o['amount'] as num?)?.toDouble() ??
+            0.0;
+
+        final payStatus = (o['payment_status'] ?? o['paid_status'])
+            ?.toString()
+            .toLowerCase();
+        final paid =
+            (o['paid_amount'] as num?)?.toDouble() ??
+            (o['amount_paid'] as num?)?.toDouble() ??
+            (payStatus == 'paid' || payStatus == 'fully_paid' ? total : 0.0);
+
+        final date =
+            DateTime.tryParse(o['created_at']?.toString() ?? '') ??
+            DateTime.now();
+
+        final oid = o['id']?.toString() ?? '?';
+        final shortId = oid.length > 6 ? oid.substring(0, 6) : oid;
+
+        cust.ledger.add(
+          LedgerEntry(
+            id: 'O$oid-P',
+            type: 'purchase',
+            amount: total,
+            note: 'Order #$shortId',
+            date: date,
+          ),
+        );
+
+        if (paid > 0) {
+          cust.ledger.add(
+            LedgerEntry(
+              id: 'O$oid-Y',
+              type: 'payment',
+              amount: paid,
+              note: paid >= total ? 'Paid in full' : 'Partial payment',
+              date: date,
+            ),
+          );
+        }
+      }
+
+      // Stable chronological order inside each customer
+      for (final cust in customers) {
+        cust.ledger.sort((a, b) => a.date.compareTo(b.date));
+      }
+    } catch (e) {
+      // Non-fatal — customers still load, ledger just stays empty
+      print('Order history unavailable: $e');
+    }
   }
+
+  void _onSearchChanged() => _updateSearch(_searchCtrl.text);
 
   void _updateSearch(String query) {
     if (query != _searchQuery) {
@@ -421,7 +364,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
   void _recalculateFiltered() {
     var list = List<Customer>.from(_customers);
-
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       list = list
@@ -434,18 +376,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
           )
           .toList();
     }
-
     list.sort((a, b) => a.name.compareTo(b.name));
     _cachedFiltered = list;
   }
 
-  void _updateCustomersList() {
-    setState(() {
-      _recalculateFiltered();
-    });
-  }
-
-  void _addCustomer(Customer c) async {
+  Future<void> _addCustomer(Customer c) async {
     try {
       final newCust = await _supabase
           .from('customers')
@@ -458,7 +393,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
           .select()
           .single();
 
-      final customer = Customer(
+      final created = Customer(
         id: newCust['id'].toString(),
         name: newCust['name'],
         email: newCust['email'] ?? '',
@@ -468,16 +403,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
         ),
         loyaltyPoints: (newCust['loyalty_points'] as num?)?.toInt() ?? 0,
         totalSpent: (newCust['total_spent'] as num?)?.toDouble() ?? 0.0,
-        lastVisit: newCust['last_visit'] != null
-            ? DateTime.parse(newCust['last_visit'])
-            : null,
+        lastVisit: null,
         joinDate: DateTime.parse(
           newCust['created_at'] ?? DateTime.now().toIso8601String(),
         ),
       );
 
       setState(() {
-        _customers.add(customer);
+        _customers.add(created);
         _recalculateFiltered();
       });
       _showToast('Customer added', CustomerColors.green);
@@ -487,10 +420,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
     }
   }
 
-  void _deleteCustomer(String id) async {
+  Future<void> _deleteCustomer(String id) async {
     try {
       await _supabase.from('customers').delete().eq('id', id);
-
       setState(() {
         _customers.removeWhere((c) => c.id == id);
         if (_selected?.id == id) _selected = null;
@@ -503,7 +435,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
     }
   }
 
-  void _editCustomer(Customer u) async {
+  Future<void> _editCustomer(Customer u) async {
     try {
       await _supabase
           .from('customers')
@@ -532,19 +464,20 @@ class _CustomersScreenState extends State<CustomersScreen> {
     setState(() {
       c.ledger.add(e);
       if (_selected?.id == c.id) _selected = c;
-      _updateCustomersList();
+      _recalculateFiltered();
     });
   }
 
-  // ✅ Computed properties
   int get _totalCustomers => _customers.length;
-  double get _totalReceivables => _customers.fold(0.0, (s, c) => s + c.balance);
+  double get _totalReceivables =>
+      _customers.fold(0.0, (s, c) => s + (c.balance > 0 ? c.balance : 0));
   double get _totalPurchases =>
       _customers.fold(0.0, (s, c) => s + c.totalPurchases);
-  int get _activeBalances => _customers.where((c) => c.balance > 0).length;
+  int get _activeBalances => _customers.where((c) => c.balance > 0.005).length;
 
   void _showToast(String msg, Color color) {
     HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: color,
@@ -558,12 +491,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
           children: [
             Icon(Icons.check_circle_rounded, color: Colors.white, size: 18.sp),
             SizedBox(width: 10.w),
-            Text(
-              msg,
-              style: CustomerFonts.sans(
-                13.sp,
-                w: FontWeight.w600,
-                color: Colors.white,
+            Expanded(
+              child: Text(
+                msg,
+                style: CustomerFonts.sans(
+                  13.sp,
+                  w: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -572,8 +507,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
     );
   }
 
-  // ── Dialogs ──────────────────────────────────────────────────────────────────
-
+  // ── Dialogs ─────────────────────────────────────────────────────────────
   void _showAddDialog() {
     final nc = TextEditingController();
     final pc = TextEditingController();
@@ -600,7 +534,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 totalSpent: 0.0,
               ),
             );
-            _showToast('Customer added', CustomerColors.green);
           }
         },
       ),
@@ -634,7 +567,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
               color: c.color,
             ),
           );
-          _showToast('Customer updated', CustomerColors.blue);
         },
       ),
     );
@@ -748,6 +680,10 @@ class _CustomersScreenState extends State<CustomersScreen> {
           Navigator.pop(context);
           _showLedgerDialog(c);
         },
+        onHistory: () {
+          Navigator.pop(context);
+          _OrderHistorySheet.show(context, c);
+        },
       ),
     );
   }
@@ -764,65 +700,88 @@ class _CustomersScreenState extends State<CustomersScreen> {
             children: [
               _TopBar(searchCtrl: _searchCtrl, onAdd: _showAddDialog),
               Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.all(20.w),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const _WelcomeHeader(),
-                      SizedBox(height: 24.h),
-                      _SummaryCards(
-                        totalCustomers: _totalCustomers,
-                        totalReceivables: _totalReceivables,
-                        totalPurchases: _totalPurchases,
-                        activeBalances: _activeBalances,
-                        constraints: constraints,
-                      ),
-                      SizedBox(height: 24.h),
-                      if (isWide && _selected != null)
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: _CustomerTable(
-                                customers: _cachedFiltered,
-                                selected: _selected,
-                                onSelect: (c) => setState(() => _selected = c),
-                                onEdit: _showEditDialog,
-                                onDelete: _confirmDelete,
-                                onLedger: _showLedgerDialog,
-                              ),
-                            ),
-                            SizedBox(width: 20.w),
-                            Expanded(
-                              child: _DetailPanel(
-                                customer: _selected!,
-                                onEdit: () => _showEditDialog(_selected!),
-                                onDelete: () => _confirmDelete(_selected!),
-                                onLedger: () => _showLedgerDialog(_selected!),
-                                onClose: () => setState(() => _selected = null),
-                              ),
-                            ),
-                          ],
-                        )
-                      else
-                        _CustomerTable(
-                          customers: _cachedFiltered,
-                          selected: _selected,
-                          onSelect: (c) {
-                            setState(() => _selected = c);
-                            if (!isWide) _showDetailSheet(c);
-                          },
-                          onEdit: _showEditDialog,
-                          onDelete: _confirmDelete,
-                          onLedger: _showLedgerDialog,
+                child: _loading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: CustomerColors.blue,
+                          strokeWidth: 3,
                         ),
-                      SizedBox(height: 32.h),
-                    ],
-                  ),
-                ),
+                      )
+                    : RefreshIndicator(
+                        color: CustomerColors.blue,
+                        onRefresh: _loadCustomers,
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
+                          ),
+                          padding: EdgeInsets.all(20.w),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _WelcomeHeader(),
+                              SizedBox(height: 24.h),
+                              _SummaryCards(
+                                totalCustomers: _totalCustomers,
+                                totalReceivables: _totalReceivables,
+                                totalPurchases: _totalPurchases,
+                                activeBalances: _activeBalances,
+                                constraints: constraints,
+                              ),
+                              SizedBox(height: 24.h),
+                              if (isWide && _selected != null)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 2,
+                                      child: _CustomerTable(
+                                        customers: _cachedFiltered,
+                                        selected: _selected,
+                                        onSelect: (c) =>
+                                            setState(() => _selected = c),
+                                        onEdit: _showEditDialog,
+                                        onDelete: _confirmDelete,
+                                        onLedger: _showLedgerDialog,
+                                      ),
+                                    ),
+                                    SizedBox(width: 20.w),
+                                    Expanded(
+                                      child: _DetailPanel(
+                                        customer: _selected!,
+                                        onEdit: () =>
+                                            _showEditDialog(_selected!),
+                                        onDelete: () =>
+                                            _confirmDelete(_selected!),
+                                        onLedger: () =>
+                                            _showLedgerDialog(_selected!),
+                                        onHistory: () =>
+                                            _OrderHistorySheet.show(
+                                              context,
+                                              _selected!,
+                                            ),
+                                        onClose: () =>
+                                            setState(() => _selected = null),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                _CustomerTable(
+                                  customers: _cachedFiltered,
+                                  selected: _selected,
+                                  onSelect: (c) {
+                                    setState(() => _selected = c);
+                                    if (!isWide) _showDetailSheet(c);
+                                  },
+                                  onEdit: _showEditDialog,
+                                  onDelete: _confirmDelete,
+                                  onLedger: _showLedgerDialog,
+                                ),
+                              SizedBox(height: 32.h),
+                            ],
+                          ),
+                        ),
+                      ),
               ),
             ],
           );
@@ -832,27 +791,26 @@ class _CustomersScreenState extends State<CustomersScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  TOP BAR
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── TOP BAR ──────────────────────────────────────────────────────────────
 class _TopBar extends StatelessWidget {
   final TextEditingController searchCtrl;
   final VoidCallback onAdd;
-
   const _TopBar({required this.searchCtrl, required this.onAdd});
 
   @override
   Widget build(BuildContext context) {
-    // Hide title on small screens to prevent overflow
     final showTitle = MediaQuery.of(context).size.width > 600;
+    final user = Supabase.instance.client.auth.currentUser;
+    final initial = (user?.email?.isNotEmpty ?? false)
+        ? user!.email![0].toUpperCase()
+        : 'U';
 
     return Container(
       height: 64.h,
       padding: EdgeInsets.symmetric(horizontal: 20.w),
       decoration: BoxDecoration(
         color: CustomerColors.surface,
-        border: Border(bottom: BorderSide(color: CustomerColors.border)),
+        border: const Border(bottom: BorderSide(color: CustomerColors.border)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -863,14 +821,9 @@ class _TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Back to Dashboard
           IconButton(
-            onPressed: () => Navigator.pushNamedAndRemoveUntil(
-              context,
-              Routes.cashierDashboard,
-              (r) => false,
-            ),
-            icon: Icon(
+            onPressed: () => context.go(Routes.cashierDashboard),
+            icon: const Icon(
               Icons.arrow_back_rounded,
               color: CustomerColors.textSecondary,
             ),
@@ -879,8 +832,19 @@ class _TopBar extends StatelessWidget {
             width: 40.w,
             height: 40.w,
             decoration: BoxDecoration(
-              color: CustomerColors.blue,
+              gradient: const LinearGradient(
+                colors: [CustomerColors.blue, Color(0xFF8B6914)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(10.r),
+              boxShadow: [
+                BoxShadow(
+                  color: CustomerColors.blue.withOpacity(0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Icon(
               Icons.people_alt_rounded,
@@ -898,19 +862,18 @@ class _TopBar extends StatelessWidget {
                   'CUSTOMERS',
                   style: CustomerFonts.sans(
                     8.sp,
-                    w: FontWeight.w700,
+                    w: FontWeight.w800,
                     color: CustomerColors.blue,
-                  ),
+                  ).copyWith(letterSpacing: 1.4),
                 ),
                 Text(
                   'Client Management',
-                  style: CustomerFonts.display(16.sp, w: FontWeight.w700),
+                  style: CustomerFonts.display(16.sp, w: FontWeight.w800),
                 ),
               ],
             ),
           ],
           const Spacer(),
-          // Use Flexible to prevent the search bar from causing a RenderFlex overflow
           Flexible(
             flex: 2,
             child: Container(
@@ -967,7 +930,9 @@ class _TopBar extends StatelessWidget {
               height: 40.h,
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               decoration: BoxDecoration(
-                color: CustomerColors.blue,
+                gradient: const LinearGradient(
+                  colors: [CustomerColors.blue, Color(0xFF8B6914)],
+                ),
                 borderRadius: BorderRadius.circular(10.r),
                 boxShadow: [
                   BoxShadow(
@@ -987,7 +952,7 @@ class _TopBar extends StatelessWidget {
                       'Add Customer',
                       style: CustomerFonts.sans(
                         12.sp,
-                        w: FontWeight.w600,
+                        w: FontWeight.w700,
                         color: Colors.white,
                       ),
                     ),
@@ -1001,7 +966,7 @@ class _TopBar extends StatelessWidget {
             radius: 18.r,
             backgroundColor: CustomerColors.blueLight,
             child: Text(
-              'S',
+              initial,
               style: TextStyle(
                 color: CustomerColors.blue,
                 fontWeight: FontWeight.bold,
@@ -1015,13 +980,9 @@ class _TopBar extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  WELCOME HEADER
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── WELCOME HEADER ───────────────────────────────────────────────────────
 class _WelcomeHeader extends StatelessWidget {
   const _WelcomeHeader();
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -1049,15 +1010,18 @@ class _WelcomeHeader extends StatelessWidget {
                 'CUSTOMER MANAGEMENT',
                 style: CustomerFonts.sans(
                   8.sp,
-                  w: FontWeight.w700,
+                  w: FontWeight.w800,
                   color: CustomerColors.blue,
-                ),
+                ).copyWith(letterSpacing: 1.4),
               ),
             ],
           ),
         ),
         SizedBox(height: 12.h),
-        Text('Client Directory', style: CustomerFonts.display(36.sp)),
+        Text(
+          'Client Directory',
+          style: CustomerFonts.display(32.sp, w: FontWeight.w800),
+        ),
         SizedBox(height: 6.h),
         Text(
           'Manage your customers, track balances, and view transaction history.',
@@ -1068,10 +1032,7 @@ class _WelcomeHeader extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  SUMMARY CARDS
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── SUMMARY CARDS ────────────────────────────────────────────────────────
 class _SummaryCards extends StatelessWidget {
   final int totalCustomers;
   final double totalReceivables;
@@ -1099,12 +1060,12 @@ class _SummaryCards extends StatelessWidget {
         'Active accounts',
       ),
       _SD(
-        'Total Receivables',
+        'Outstanding Owed',
         '\$${totalReceivables.toStringAsFixed(2)}',
         Icons.account_balance_wallet_outlined,
         CustomerColors.orange,
         CustomerColors.orangeLight,
-        'Outstanding',
+        'Not yet paid',
       ),
       _SD(
         'Total Purchases',
@@ -1115,7 +1076,7 @@ class _SummaryCards extends StatelessWidget {
         'All time',
       ),
       _SD(
-        'Active Balances',
+        'Customers Owing',
         '$activeBalances',
         Icons.pending_actions_rounded,
         CustomerColors.purple,
@@ -1168,7 +1129,6 @@ class _SummaryCards extends StatelessWidget {
 
 class _SummaryCard extends StatelessWidget {
   final _SD data;
-
   const _SummaryCard({required this.data});
 
   @override
@@ -1221,7 +1181,7 @@ class _SummaryCard extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Text(
               data.value,
-              style: CustomerFonts.display(22.sp, w: FontWeight.w800),
+              style: CustomerFonts.mono(22.sp, w: FontWeight.w800),
             ),
           ),
           SizedBox(height: 2.h),
@@ -1238,10 +1198,7 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  CUSTOMER TABLE (OVERFLOW FIXED)
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── CUSTOMER TABLE ───────────────────────────────────────────────────────
 class _CustomerTable extends StatelessWidget {
   final List<Customer> customers;
   final Customer? selected;
@@ -1264,22 +1221,21 @@ class _CustomerTable extends StatelessWidget {
     'Customer',
     'Contact',
     'Purchases',
-    'Payments',
-    'Balance',
-    'Transactions',
+    'Paid',
+    'Status',
+    'Orders',
     '',
   ];
 
-  // FIXED WIDTHS TO SCALE PROPERLY WITH SCREENUTIL
   List<double> get _widths => [
     70.w,
-    220.w, // Name/Avatar
-    180.w, // Contact
-    110.w, // Purchases
-    110.w, // Payments
-    110.w, // Balance
-    100.w, // Transactions
-    140.w, // Action Buttons
+    220.w,
+    180.w,
+    110.w,
+    110.w,
+    130.w,
+    90.w,
+    140.w,
   ];
 
   double get _tableWidth => _widths.fold(0.0, (a, b) => a + b) + 32.w;
@@ -1306,7 +1262,6 @@ class _CustomerTable extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                 decoration: BoxDecoration(
@@ -1314,7 +1269,7 @@ class _CustomerTable extends StatelessWidget {
                   borderRadius: BorderRadius.vertical(
                     top: Radius.circular(14.r),
                   ),
-                  border: Border(
+                  border: const Border(
                     bottom: BorderSide(color: CustomerColors.border),
                   ),
                 ),
@@ -1327,31 +1282,46 @@ class _CustomerTable extends StatelessWidget {
                         _headers[i],
                         style: CustomerFonts.sans(
                           9.sp,
-                          w: FontWeight.w600,
+                          w: FontWeight.w800,
                           color: CustomerColors.textDim,
-                        ),
+                        ).copyWith(letterSpacing: 1.2),
                       ),
                     ),
                   ),
                 ),
               ),
-              // Rows
               if (customers.isEmpty)
                 Padding(
                   padding: EdgeInsets.all(48.w),
                   child: Center(
                     child: Column(
                       children: [
-                        Icon(
-                          Icons.people_outline_rounded,
-                          size: 48.sp,
-                          color: CustomerColors.textDim,
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: CustomerColors.surface2,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.people_outline_rounded,
+                            size: 36.sp,
+                            color: CustomerColors.textMuted,
+                          ),
                         ),
                         SizedBox(height: 12.h),
                         Text(
                           'No customers found',
                           style: CustomerFonts.sans(
                             14.sp,
+                            w: FontWeight.w700,
+                            color: CustomerColors.text,
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          'Add your first customer to get started',
+                          style: CustomerFonts.sans(
+                            12.sp,
                             color: CustomerColors.textSecondary,
                           ),
                         ),
@@ -1378,10 +1348,6 @@ class _CustomerTable extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  TABLE ROW
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _TableRow extends StatefulWidget {
   final Customer customer;
@@ -1412,10 +1378,14 @@ class _TableRowState extends State<_TableRow> {
   @override
   Widget build(BuildContext context) {
     final c = widget.customer;
-    final bal = c.balance;
-    final balColor = bal == 0
-        ? CustomerColors.green
-        : (bal < 0 ? CustomerColors.red : CustomerColors.orange);
+    final settled = c.isSettled;
+    final statusColor = settled ? CustomerColors.green : CustomerColors.orange;
+    final statusBg = settled
+        ? CustomerColors.greenLight
+        : CustomerColors.orangeLight;
+    final statusLabel = settled
+        ? 'Settled'
+        : 'Owes \$${c.balance.toStringAsFixed(2)}';
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -1426,10 +1396,10 @@ class _TableRowState extends State<_TableRow> {
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           decoration: BoxDecoration(
             color: widget.isSelected
-                ? CustomerColors.blue.withOpacity(0.04)
+                ? CustomerColors.blueLight
                 : (_hovered ? CustomerColors.surface2 : CustomerColors.surface),
             border: Border(
-              bottom: BorderSide(color: CustomerColors.border),
+              bottom: const BorderSide(color: CustomerColors.border),
               left: BorderSide(
                 color: widget.isSelected
                     ? CustomerColors.blue
@@ -1467,7 +1437,7 @@ class _TableRowState extends State<_TableRow> {
                           c.name.isNotEmpty ? c.name[0].toUpperCase() : 'U',
                           style: CustomerFonts.sans(
                             12.sp,
-                            w: FontWeight.w700,
+                            w: FontWeight.w800,
                             color: c.color,
                           ),
                         ),
@@ -1484,7 +1454,7 @@ class _TableRowState extends State<_TableRow> {
                             overflow: TextOverflow.ellipsis,
                             style: CustomerFonts.sans(
                               12.sp,
-                              w: FontWeight.w600,
+                              w: FontWeight.w700,
                             ),
                           ),
                           SizedBox(height: 2.h),
@@ -1510,7 +1480,7 @@ class _TableRowState extends State<_TableRow> {
                     10.sp,
                     color: CustomerColors.textSecondary,
                   ),
-                  overflow: TextOverflow.ellipsis, // Added overflow
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               SizedBox(
@@ -1519,10 +1489,10 @@ class _TableRowState extends State<_TableRow> {
                   '\$${c.totalPurchases.toStringAsFixed(2)}',
                   style: CustomerFonts.mono(
                     11.sp,
-                    w: FontWeight.w600,
+                    w: FontWeight.w700,
                     color: CustomerColors.blue,
                   ),
-                  overflow: TextOverflow.ellipsis, // Added overflow
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               SizedBox(
@@ -1531,10 +1501,10 @@ class _TableRowState extends State<_TableRow> {
                   '\$${c.totalPayments.toStringAsFixed(2)}',
                   style: CustomerFonts.mono(
                     11.sp,
-                    w: FontWeight.w600,
+                    w: FontWeight.w700,
                     color: CustomerColors.green,
                   ),
-                  overflow: TextOverflow.ellipsis, // Added overflow
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               SizedBox(
@@ -1547,17 +1517,33 @@ class _TableRowState extends State<_TableRow> {
                       vertical: 4.h,
                     ),
                     decoration: BoxDecoration(
-                      color: balColor.withOpacity(0.1),
+                      color: statusBg,
                       borderRadius: BorderRadius.circular(6.r),
+                      border: Border.all(color: statusColor.withOpacity(0.3)),
                     ),
-                    child: Text(
-                      bal == 0 ? 'Settled' : '\$${bal.toStringAsFixed(2)}',
-                      style: CustomerFonts.mono(
-                        10.sp,
-                        w: FontWeight.w600,
-                        color: balColor,
-                      ),
-                      overflow: TextOverflow.ellipsis, // Added overflow
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          settled
+                              ? Icons.check_circle_rounded
+                              : Icons.access_time_rounded,
+                          size: 11.sp,
+                          color: statusColor,
+                        ),
+                        SizedBox(width: 4.w),
+                        Flexible(
+                          child: Text(
+                            statusLabel,
+                            style: CustomerFonts.mono(
+                              10.sp,
+                              w: FontWeight.w700,
+                              color: statusColor,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1565,9 +1551,10 @@ class _TableRowState extends State<_TableRow> {
               SizedBox(
                 width: widget.colWidths[6],
                 child: Text(
-                  '${c.transactionCount} entries',
+                  '${c.orderCount}',
                   style: CustomerFonts.sans(
                     11.sp,
+                    w: FontWeight.w700,
                     color: CustomerColors.textSecondary,
                   ),
                 ),
@@ -1577,6 +1564,12 @@ class _TableRowState extends State<_TableRow> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    _ActionButton(
+                      icon: Icons.receipt_long_rounded,
+                      color: CustomerColors.blue,
+                      onTap: () => _OrderHistorySheet.show(context, c),
+                    ),
+                    SizedBox(width: 6.w),
                     _ActionButton(
                       icon: Icons.payments_outlined,
                       color: CustomerColors.green,
@@ -1609,7 +1602,6 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
-
   const _ActionButton({
     required this.icon,
     required this.color,
@@ -1621,9 +1613,8 @@ class _ActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 32, // <--- FIXED: Absolute size prevents button scaling overflow
-        height:
-            32, // <--- FIXED: Absolute size prevents button scaling overflow
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
           color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(8.r),
@@ -1635,15 +1626,13 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  DETAIL PANEL (Desktop)
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── DETAIL PANEL (Desktop) ───────────────────────────────────────────────
 class _DetailPanel extends StatelessWidget {
   final Customer customer;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onLedger;
+  final VoidCallback onHistory;
   final VoidCallback onClose;
 
   const _DetailPanel({
@@ -1651,6 +1640,7 @@ class _DetailPanel extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onLedger,
+    required this.onHistory,
     required this.onClose,
   });
 
@@ -1658,6 +1648,9 @@ class _DetailPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final settled = customer.isSettled;
+    final balColor = settled ? CustomerColors.green : CustomerColors.orange;
+
     return Container(
       decoration: BoxDecoration(
         color: CustomerColors.surface,
@@ -1673,7 +1666,7 @@ class _DetailPanel extends StatelessWidget {
               children: [
                 Text(
                   'Customer Details',
-                  style: CustomerFonts.sans(13.sp, w: FontWeight.w700),
+                  style: CustomerFonts.sans(13.sp, w: FontWeight.w800),
                 ),
                 const Spacer(),
                 GestureDetector(
@@ -1687,7 +1680,7 @@ class _DetailPanel extends StatelessWidget {
               ],
             ),
           ),
-          Divider(height: 1, color: CustomerColors.border),
+          const Divider(height: 1, color: CustomerColors.border),
           Padding(
             padding: EdgeInsets.all(16.w),
             child: Column(
@@ -1712,7 +1705,10 @@ class _DetailPanel extends StatelessWidget {
                   ),
                 ),
                 SizedBox(height: 12.h),
-                Text(customer.name, style: CustomerFonts.display(18.sp)),
+                Text(
+                  customer.name,
+                  style: CustomerFonts.display(18.sp, w: FontWeight.w800),
+                ),
                 SizedBox(height: 4.h),
                 Text(
                   customer.id,
@@ -1730,7 +1726,66 @@ class _DetailPanel extends StatelessWidget {
                   icon: Icons.calendar_today_rounded,
                   label: 'Customer since ${_formatDate(customer.createdAt)}',
                 ),
-                SizedBox(height: 20.h),
+                SizedBox(height: 16.h),
+                // Big status banner
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.all(12.w),
+                  decoration: BoxDecoration(
+                    color: settled
+                        ? CustomerColors.greenLight
+                        : CustomerColors.orangeLight,
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(color: balColor.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        settled
+                            ? Icons.check_circle_rounded
+                            : Icons.account_balance_wallet_rounded,
+                        color: balColor,
+                        size: 20.sp,
+                      ),
+                      SizedBox(width: 10.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              settled ? 'Settled' : 'Outstanding',
+                              style: CustomerFonts.sans(
+                                12.sp,
+                                w: FontWeight.w800,
+                                color: balColor,
+                              ),
+                            ),
+                            Text(
+                              settled
+                                  ? 'All paid'
+                                  : 'Owes \$${customer.balance.toStringAsFixed(2)}',
+                              style: CustomerFonts.sans(
+                                10.sp,
+                                color: CustomerColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        settled
+                            ? '\$0.00'
+                            : '\$${customer.balance.toStringAsFixed(2)}',
+                        style: CustomerFonts.mono(
+                          16.sp,
+                          w: FontWeight.w800,
+                          color: balColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 12.h),
                 Container(
                   padding: EdgeInsets.all(12.w),
                   decoration: BoxDecoration(
@@ -1746,7 +1801,7 @@ class _DetailPanel extends StatelessWidget {
                               '\$${customer.totalPurchases.toStringAsFixed(2)}',
                               style: CustomerFonts.mono(
                                 14.sp,
-                                w: FontWeight.w700,
+                                w: FontWeight.w800,
                                 color: CustomerColors.blue,
                               ),
                             ),
@@ -1767,12 +1822,12 @@ class _DetailPanel extends StatelessWidget {
                               '\$${customer.totalPayments.toStringAsFixed(2)}',
                               style: CustomerFonts.mono(
                                 14.sp,
-                                w: FontWeight.w700,
+                                w: FontWeight.w800,
                                 color: CustomerColors.green,
                               ),
                             ),
                             Text(
-                              'Payments',
+                              'Paid',
                               style: CustomerFonts.sans(
                                 10.sp,
                                 color: CustomerColors.textSecondary,
@@ -1785,19 +1840,15 @@ class _DetailPanel extends StatelessWidget {
                         child: Column(
                           children: [
                             Text(
-                              '\$${customer.balance.toStringAsFixed(2)}',
+                              '${customer.orderCount}',
                               style: CustomerFonts.mono(
                                 14.sp,
-                                w: FontWeight.w700,
-                                color: customer.balance == 0
-                                    ? CustomerColors.green
-                                    : (customer.balance < 0
-                                          ? CustomerColors.red
-                                          : CustomerColors.orange),
+                                w: FontWeight.w800,
+                                color: CustomerColors.purple,
                               ),
                             ),
                             Text(
-                              'Balance',
+                              'Orders',
                               style: CustomerFonts.sans(
                                 10.sp,
                                 color: CustomerColors.textSecondary,
@@ -1809,29 +1860,43 @@ class _DetailPanel extends StatelessWidget {
                     ],
                   ),
                 ),
-                SizedBox(height: 20.h),
-                if (customer.ledger.isNotEmpty) ...[
-                  Row(
-                    children: [
-                      Text(
-                        'Recent Transactions',
-                        style: CustomerFonts.sans(12.sp, w: FontWeight.w600),
-                      ),
-                      const Spacer(),
-                      Text(
-                        'See all',
+                SizedBox(height: 16.h),
+                Row(
+                  children: [
+                    Text(
+                      'Recent Transactions',
+                      style: CustomerFonts.sans(12.sp, w: FontWeight.w800),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: onHistory,
+                      child: Text(
+                        'See all (${customer.ledger.length})',
                         style: CustomerFonts.sans(
                           11.sp,
+                          w: FontWeight.w700,
                           color: CustomerColors.blue,
                         ),
                       ),
-                    ],
-                  ),
-                  SizedBox(height: 8.h),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8.h),
+                if (customer.ledger.isEmpty)
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    child: Text(
+                      'No transactions yet',
+                      style: CustomerFonts.sans(
+                        11.sp,
+                        color: CustomerColors.textMuted,
+                      ),
+                    ),
+                  )
+                else
                   ...customer.ledger.reversed
                       .take(3)
                       .map((e) => _TransactionRow(entry: e)),
-                ],
                 SizedBox(height: 20.h),
                 Row(
                   children: [
@@ -1890,7 +1955,6 @@ class _DetailPanel extends StatelessWidget {
 class _DetailRow extends StatelessWidget {
   final IconData icon;
   final String label;
-
   const _DetailRow({required this.icon, required this.label});
 
   @override
@@ -1899,7 +1963,6 @@ class _DetailRow extends StatelessWidget {
       children: [
         Icon(icon, size: 16.sp, color: CustomerColors.textSecondary),
         SizedBox(width: 10.w),
-        // Added Expanded and TextOverflow to prevent long email/phone overflow
         Expanded(
           child: Text(
             label,
@@ -1914,7 +1977,6 @@ class _DetailRow extends StatelessWidget {
 
 class _TransactionRow extends StatelessWidget {
   final LedgerEntry entry;
-
   const _TransactionRow({required this.entry});
 
   @override
@@ -1947,11 +2009,11 @@ class _TransactionRow extends StatelessWidget {
           ),
           Text(
             isPurchase
-                ? '-\$${entry.amount.toStringAsFixed(2)}'
+                ? '−\$${entry.amount.toStringAsFixed(2)}'
                 : '+\$${entry.amount.toStringAsFixed(2)}',
             style: CustomerFonts.mono(
               11.sp,
-              w: FontWeight.w600,
+              w: FontWeight.w700,
               color: isPurchase ? CustomerColors.red : CustomerColors.green,
             ),
           ),
@@ -1961,25 +2023,27 @@ class _TransactionRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  DETAIL SHEET (Mobile)
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── DETAIL SHEET (Mobile) ────────────────────────────────────────────────
 class _DetailSheet extends StatelessWidget {
   final Customer customer;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onLedger;
+  final VoidCallback onHistory;
 
   const _DetailSheet({
     required this.customer,
     required this.onEdit,
     required this.onDelete,
     required this.onLedger,
+    required this.onHistory,
   });
 
   @override
   Widget build(BuildContext context) {
+    final settled = customer.isSettled;
+    final balColor = settled ? CustomerColors.green : CustomerColors.orange;
+
     return Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
@@ -2013,7 +2077,10 @@ class _DetailSheet extends StatelessWidget {
             ),
           ),
           SizedBox(height: 12.h),
-          Text(customer.name, style: CustomerFonts.display(18.sp)),
+          Text(
+            customer.name,
+            style: CustomerFonts.display(18.sp, w: FontWeight.w800),
+          ),
           Text(
             customer.id,
             style: CustomerFonts.mono(
@@ -2021,7 +2088,43 @@ class _DetailSheet extends StatelessWidget {
               color: CustomerColors.textSecondary,
             ),
           ),
-          SizedBox(height: 16.h),
+          SizedBox(height: 12.h),
+          // Status banner
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(12.w),
+            decoration: BoxDecoration(
+              color: settled
+                  ? CustomerColors.greenLight
+                  : CustomerColors.orangeLight,
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  settled
+                      ? Icons.check_circle_rounded
+                      : Icons.account_balance_wallet_rounded,
+                  color: balColor,
+                  size: 20.sp,
+                ),
+                SizedBox(width: 10.w),
+                Expanded(
+                  child: Text(
+                    settled
+                        ? 'Account Settled'
+                        : 'Owes \$${customer.balance.toStringAsFixed(2)}',
+                    style: CustomerFonts.sans(
+                      12.sp,
+                      w: FontWeight.w800,
+                      color: balColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 12.h),
           Container(
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
@@ -2037,7 +2140,7 @@ class _DetailSheet extends StatelessWidget {
                         '\$${customer.totalPurchases.toStringAsFixed(2)}',
                         style: CustomerFonts.mono(
                           14.sp,
-                          w: FontWeight.w700,
+                          w: FontWeight.w800,
                           color: CustomerColors.blue,
                         ),
                       ),
@@ -2055,19 +2158,15 @@ class _DetailSheet extends StatelessWidget {
                   child: Column(
                     children: [
                       Text(
-                        '\$${customer.balance.toStringAsFixed(2)}',
+                        '${customer.orderCount}',
                         style: CustomerFonts.mono(
                           14.sp,
-                          w: FontWeight.w700,
-                          color: customer.balance == 0
-                              ? CustomerColors.green
-                              : (customer.balance < 0
-                                    ? CustomerColors.red
-                                    : CustomerColors.orange),
+                          w: FontWeight.w800,
+                          color: CustomerColors.purple,
                         ),
                       ),
                       Text(
-                        'Balance',
+                        'Orders',
                         style: CustomerFonts.sans(
                           10.sp,
                           color: CustomerColors.textSecondary,
@@ -2079,7 +2178,24 @@ class _DetailSheet extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: 20.h),
+          SizedBox(height: 16.h),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onHistory,
+              icon: Icon(Icons.receipt_long_rounded, size: 16.sp),
+              label: Text('View full history (${customer.ledger.length})'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: CustomerColors.blue,
+                side: const BorderSide(color: CustomerColors.blue),
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+              ),
+            ),
+          ),
+          SizedBox(height: 12.h),
           Row(
             children: [
               Expanded(
@@ -2129,10 +2245,7 @@ class _DetailSheet extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  FORM DIALOG
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── FORM DIALOG ──────────────────────────────────────────────────────────
 class _CustomerFormDialog extends StatelessWidget {
   final bool isEdit;
   final TextEditingController nameCtrl;
@@ -2157,7 +2270,6 @@ class _CustomerFormDialog extends StatelessWidget {
         isEdit ? 'Edit Customer' : 'Add New Customer',
         style: CustomerFonts.display(16.sp, w: FontWeight.w800),
       ),
-      // Changed SizedBox to Container with BoxConstraints for flexible narrow screens
       content: Container(
         width: double.maxFinite,
         constraints: BoxConstraints(maxWidth: 320.w),
@@ -2211,7 +2323,7 @@ class _CustomerFormDialog extends StatelessWidget {
             isEdit ? 'Save Changes' : 'Add Customer',
             style: CustomerFonts.sans(
               12.sp,
-              w: FontWeight.w600,
+              w: FontWeight.w700,
               color: Colors.white,
             ),
           ),
@@ -2242,9 +2354,9 @@ class _DialogField extends StatelessWidget {
           label,
           style: CustomerFonts.sans(
             9.sp,
-            w: FontWeight.w600,
+            w: FontWeight.w800,
             color: CustomerColors.textDim,
-          ),
+          ).copyWith(letterSpacing: 1.2),
         ),
         SizedBox(height: 6.h),
         Container(
@@ -2279,10 +2391,7 @@ class _DialogField extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  LEDGER DIALOG
-// ─────────────────────────────────────────────────────────────────────────────
-
+// ─── LEDGER DIALOG ────────────────────────────────────────────────────────
 class _LedgerDialog extends StatelessWidget {
   final Customer customer;
   final TextEditingController amountCtrl;
@@ -2323,7 +2432,6 @@ class _LedgerDialog extends StatelessWidget {
           ),
         ],
       ),
-      // Changed SizedBox to Container with BoxConstraints for flexible narrow screens
       content: Container(
         width: double.maxFinite,
         constraints: BoxConstraints(maxWidth: 300.w),
@@ -2333,88 +2441,22 @@ class _LedgerDialog extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: GestureDetector(
+                  child: _typePill(
+                    selected: selectedType == 'payment',
+                    color: CustomerColors.green,
+                    icon: Icons.arrow_downward_rounded,
+                    label: 'Payment',
                     onTap: () => onTypeChanged('payment'),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(vertical: 10.h),
-                      decoration: BoxDecoration(
-                        color: selectedType == 'payment'
-                            ? CustomerColors.green.withOpacity(0.12)
-                            : CustomerColors.surface2,
-                        borderRadius: BorderRadius.circular(10.r),
-                        border: Border.all(
-                          color: selectedType == 'payment'
-                              ? CustomerColors.green
-                              : CustomerColors.border,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.arrow_downward_rounded,
-                            size: 14.sp,
-                            color: selectedType == 'payment'
-                                ? CustomerColors.green
-                                : CustomerColors.textSecondary,
-                          ),
-                          SizedBox(width: 6.w),
-                          Text(
-                            'Payment',
-                            style: CustomerFonts.sans(
-                              11.sp,
-                              w: FontWeight.w600,
-                              color: selectedType == 'payment'
-                                  ? CustomerColors.green
-                                  : CustomerColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
                 SizedBox(width: 10.w),
                 Expanded(
-                  child: GestureDetector(
+                  child: _typePill(
+                    selected: selectedType == 'purchase',
+                    color: CustomerColors.blue,
+                    icon: Icons.arrow_upward_rounded,
+                    label: 'Purchase',
                     onTap: () => onTypeChanged('purchase'),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(vertical: 10.h),
-                      decoration: BoxDecoration(
-                        color: selectedType == 'purchase'
-                            ? CustomerColors.blue.withOpacity(0.12)
-                            : CustomerColors.surface2,
-                        borderRadius: BorderRadius.circular(10.r),
-                        border: Border.all(
-                          color: selectedType == 'purchase'
-                              ? CustomerColors.blue
-                              : CustomerColors.border,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.arrow_upward_rounded,
-                            size: 14.sp,
-                            color: selectedType == 'purchase'
-                                ? CustomerColors.blue
-                                : CustomerColors.textSecondary,
-                          ),
-                          SizedBox(width: 6.w),
-                          Text(
-                            'Purchase',
-                            style: CustomerFonts.sans(
-                              11.sp,
-                              w: FontWeight.w600,
-                              color: selectedType == 'purchase'
-                                  ? CustomerColors.blue
-                                  : CustomerColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
               ],
@@ -2463,7 +2505,7 @@ class _LedgerDialog extends StatelessWidget {
             'Record ${selectedType == 'payment' ? 'Payment' : 'Purchase'}',
             style: CustomerFonts.sans(
               12.sp,
-              w: FontWeight.w600,
+              w: FontWeight.w700,
               color: Colors.white,
             ),
           ),
@@ -2471,6 +2513,43 @@ class _LedgerDialog extends StatelessWidget {
       ],
     );
   }
+
+  Widget _typePill({
+    required bool selected,
+    required Color color,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: EdgeInsets.symmetric(vertical: 10.h),
+      decoration: BoxDecoration(
+        color: selected ? color.withOpacity(0.12) : CustomerColors.surface2,
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(color: selected ? color : CustomerColors.border),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 14.sp,
+            color: selected ? color : CustomerColors.textSecondary,
+          ),
+          SizedBox(width: 6.w),
+          Text(
+            label,
+            style: CustomerFonts.sans(
+              11.sp,
+              w: FontWeight.w700,
+              color: selected ? color : CustomerColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _SD {
@@ -2480,7 +2559,6 @@ class _SD {
   final IconData icon;
   final Color accent;
   final Color accentDim;
-
   const _SD(
     this.label,
     this.value,
@@ -2488,5 +2566,347 @@ class _SD {
     this.accent,
     this.accentDim,
     this.sub,
+  );
+}
+
+// ─── FULL ORDER HISTORY SHEET ─────────────────────────────────────────────
+class _OrderHistorySheet extends StatelessWidget {
+  final Customer customer;
+  const _OrderHistorySheet({required this.customer});
+
+  static void show(BuildContext context, Customer c) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _OrderHistorySheet(customer: c),
+    );
+  }
+
+  String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final bal = customer.balance;
+    final settled = customer.isSettled;
+    final entries = customer.ledger.reversed.toList();
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.85,
+      maxChildSize: 0.95,
+      minChildSize: 0.5,
+      expand: false,
+      builder: (ctx, scroll) => Container(
+        decoration: BoxDecoration(
+          color: CustomerColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+        ),
+        child: Column(
+          children: [
+            SizedBox(height: 10.h),
+            Container(
+              width: 40.w,
+              height: 4.h,
+              decoration: BoxDecoration(
+                color: CustomerColors.border,
+                borderRadius: BorderRadius.circular(2.r),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 8.h),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44.w,
+                    height: 44.w,
+                    decoration: BoxDecoration(
+                      color: customer.color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Center(
+                      child: Text(
+                        customer.name.isNotEmpty
+                            ? customer.name[0].toUpperCase()
+                            : 'U',
+                        style: CustomerFonts.display(
+                          18.sp,
+                          color: customer.color,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          customer.name,
+                          style: CustomerFonts.display(
+                            15.sp,
+                            w: FontWeight.w800,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Order History',
+                          style: CustomerFonts.sans(
+                            11.sp,
+                            color: CustomerColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 32.w,
+                      height: 32.w,
+                      decoration: BoxDecoration(
+                        color: CustomerColors.surface2,
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 18.sp,
+                        color: CustomerColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(20.w, 8.h, 20.w, 12.h),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(14.w),
+                decoration: BoxDecoration(
+                  color: settled
+                      ? CustomerColors.greenLight
+                      : CustomerColors.orangeLight,
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(
+                    color: settled
+                        ? CustomerColors.green.withOpacity(0.3)
+                        : CustomerColors.orange.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      settled
+                          ? Icons.check_circle_rounded
+                          : Icons.account_balance_wallet_rounded,
+                      color: settled
+                          ? CustomerColors.green
+                          : CustomerColors.orange,
+                      size: 22.sp,
+                    ),
+                    SizedBox(width: 10.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            settled ? 'Account Settled' : 'Outstanding Balance',
+                            style: CustomerFonts.sans(
+                              12.sp,
+                              w: FontWeight.w800,
+                              color: settled
+                                  ? CustomerColors.green
+                                  : CustomerColors.orange,
+                            ),
+                          ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            settled
+                                ? 'All purchases are fully paid'
+                                : 'Customer owes \$${bal.toStringAsFixed(2)}',
+                            style: CustomerFonts.sans(
+                              11.sp,
+                              color: CustomerColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      settled ? '\$0.00' : '\$${bal.toStringAsFixed(2)}',
+                      style: CustomerFonts.mono(
+                        18.sp,
+                        w: FontWeight.w800,
+                        color: settled
+                            ? CustomerColors.green
+                            : CustomerColors.orange,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _miniStat(
+                      'Total Purchases',
+                      '\$${customer.totalPurchases.toStringAsFixed(2)}',
+                      CustomerColors.blue,
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: _miniStat(
+                      'Total Paid',
+                      '\$${customer.totalPayments.toStringAsFixed(2)}',
+                      CustomerColors.green,
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: _miniStat(
+                      'Orders',
+                      '${customer.orderCount}',
+                      CustomerColors.purple,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 12.h),
+            const Divider(height: 1, color: CustomerColors.border),
+            Expanded(
+              child: entries.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32.w),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.receipt_long_rounded,
+                              size: 40.sp,
+                              color: CustomerColors.textMuted,
+                            ),
+                            SizedBox(height: 8.h),
+                            Text(
+                              'No transactions yet',
+                              style: CustomerFonts.sans(
+                                13.sp,
+                                w: FontWeight.w700,
+                                color: CustomerColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: scroll,
+                      padding: EdgeInsets.all(20.w),
+                      itemCount: entries.length,
+                      separatorBuilder: (_, _) => SizedBox(height: 8.h),
+                      itemBuilder: (_, i) {
+                        final e = entries[i];
+                        final isPurchase = e.type == 'purchase';
+                        final color = isPurchase
+                            ? CustomerColors.blue
+                            : CustomerColors.green;
+                        return Container(
+                          padding: EdgeInsets.all(12.w),
+                          decoration: BoxDecoration(
+                            color: CustomerColors.surface,
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(color: CustomerColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36.w,
+                                height: 36.w,
+                                decoration: BoxDecoration(
+                                  color: color.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10.r),
+                                ),
+                                child: Icon(
+                                  isPurchase
+                                      ? Icons.shopping_cart_rounded
+                                      : Icons.payments_rounded,
+                                  color: color,
+                                  size: 18.sp,
+                                ),
+                              ),
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      e.note,
+                                      style: CustomerFonts.sans(
+                                        12.sp,
+                                        w: FontWeight.w700,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    SizedBox(height: 2.h),
+                                    Text(
+                                      _fmt(e.date),
+                                      style: CustomerFonts.sans(
+                                        10.sp,
+                                        color: CustomerColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                '${isPurchase ? '−' : '+'}\$${e.amount.toStringAsFixed(2)}',
+                                style: CustomerFonts.mono(
+                                  13.sp,
+                                  w: FontWeight.w800,
+                                  color: color,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _miniStat(String label, String value, Color color) => Container(
+    padding: EdgeInsets.all(10.w),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(10.r),
+      border: Border.all(color: color.withOpacity(0.18)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: CustomerFonts.mono(14.sp, w: FontWeight.w800, color: color),
+        ),
+        SizedBox(height: 2.h),
+        Text(
+          label,
+          style: CustomerFonts.sans(
+            9.sp,
+            color: CustomerColors.textSecondary,
+          ).copyWith(letterSpacing: 0.5),
+        ),
+      ],
+    ),
   );
 }

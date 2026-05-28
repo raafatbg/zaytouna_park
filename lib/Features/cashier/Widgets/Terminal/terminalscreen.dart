@@ -1,7 +1,8 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, curly_braces_in_flow_control_structures
+// ignore_for_file: use_build_context_synchronously, curly_braces_in_flow_control_structures
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -10,23 +11,18 @@ import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────
 class T {
-  // Brand
-  static const primary = Color(0xFFB8860B); // gold
-  static const primaryD = Color(0xFF8B6914); // dark gold
-  static const primaryL = Color(0xFFFFF7DB); // gold tint
-  // Surface
-  static const bg = Color(0xFFFAFAF7); // warm canvas
+  static const primary = Color(0xFFB8860B);
+  static const primaryD = Color(0xFF8B6914);
+  static const primaryL = Color(0xFFFFF7DB);
+  static const bg = Color(0xFFFAFAF7);
   static const surface = Color(0xFFFFFFFF);
   static const surfaceAlt = Color(0xFFF5F5F0);
-  // Ink
   static const ink = Color(0xFF0A0F0D);
   static const ink2 = Color(0xFF2D3438);
   static const muted = Color(0xFF64748B);
   static const muted2 = Color(0xFF94A3B8);
-  // Borders
   static const line = Color(0xFFE5E7EB);
   static const lineSoft = Color(0xFFF1F2F4);
-  // Semantic
   static const success = Color(0xFF059669);
   static const successBg = Color(0xFFD1FAE5);
   static const danger = Color(0xFFDC2626);
@@ -37,7 +33,6 @@ class T {
   static const infoBg = Color(0xFFDBEAFE);
 }
 
-// Typography helpers
 TextStyle _ui(
   double s, {
   FontWeight w = FontWeight.w600,
@@ -69,7 +64,7 @@ TextStyle _eyebrow(double s, {Color? c}) => GoogleFonts.inter(
 int roundToNearest5000(num amount) => (amount / 5000).round() * 5000;
 
 // ─── MODELS ───────────────────────────────────────────────────────────
-enum PosView { menu, inventory, facility }
+enum PosView { menu, inventory }
 
 class PosCategory {
   final int id;
@@ -89,7 +84,6 @@ class PosProduct {
   final double price;
   final bool requiresPrep;
   final bool isInventoryItem;
-  final bool isFacility;
   final String? imageUrl;
   PosProduct({
     required this.id,
@@ -98,7 +92,6 @@ class PosProduct {
     required this.price,
     required this.requiresPrep,
     required this.isInventoryItem,
-    this.isFacility = false,
     this.imageUrl,
   });
 }
@@ -120,19 +113,6 @@ class PosOrderType {
   final int id;
   final String name;
   PosOrderType({required this.id, required this.name});
-}
-
-class PosFacility {
-  final int id;
-  final String name;
-  final String typeName;
-  final double pricePerHour;
-  PosFacility({
-    required this.id,
-    required this.name,
-    required this.typeName,
-    required this.pricePerHour,
-  });
 }
 
 class PosTable {
@@ -160,17 +140,18 @@ class _UpgradedPOSState extends State<UpgradedPOS>
   List<PosProduct> _allProducts = [];
   List<PosCustomer> _customers = [];
   List<PosOrderType> _orderTypes = [];
-  List<PosFacility> _facilities = [];
   List<PosTable> _tables = [];
 
   final List<CartItem> _cart = [];
   PosCategory? _selectedCategory;
   PosCustomer? _selectedCustomer;
   PosOrderType? _selectedOrderType;
-  PosFacility? _selectedFacility;
   PosTable? _selectedTable;
 
   PosView _currentView = PosView.menu;
+
+  Map<String, dynamic>? _pendingExtra;
+  bool _extraConsumed = false;
 
   double _exchangeRate = 90000.0;
   double _discountAmount = 0.0;
@@ -186,56 +167,35 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     return t < 0 ? 0 : t;
   }
 
+  bool get _isDineIn {
+    final n =
+        _selectedOrderType?.name.toLowerCase().replaceAll(
+          RegExp(r'[-_\s]'),
+          '',
+        ) ??
+        '';
+    return n.contains('dinein');
+  }
+
   List<PosCategory> get _currentCategories {
     if (_currentView == PosView.menu) {
       return _allCategories.where((c) => !c.isInventoryCategory).toList();
     }
-    if (_currentView == PosView.inventory) {
-      return _allCategories.where((c) => c.isInventoryCategory).toList();
-    }
-    final types = _facilities.map((f) => f.typeName).toSet().toList();
-    return types
-        .map(
-          (t) =>
-              PosCategory(id: t.hashCode, name: t, isInventoryCategory: false),
-        )
-        .toList();
+    return _allCategories.where((c) => c.isInventoryCategory).toList();
   }
 
   List<PosProduct> get _currentDisplayItems {
-    List<PosProduct> list;
-    if (_currentView == PosView.facility) {
-      list = _facilities
-          .map(
-            (f) => PosProduct(
-              id: f.id,
-              categoryId: f.typeName.hashCode,
-              name: '${f.name} (Booking)',
-              price: f.pricePerHour,
-              requiresPrep: false,
-              isInventoryItem: false,
-              isFacility: true,
-            ),
-          )
-          .toList();
-    } else {
-      list = _allProducts
-          .where(
-            (p) => p.isInventoryItem == (_currentView == PosView.inventory),
-          )
-          .toList();
-    }
+    var list = _allProducts
+        .where((p) => p.isInventoryItem == (_currentView == PosView.inventory))
+        .toList();
     if (_selectedCategory != null) {
       list = list.where((p) => p.categoryId == _selectedCategory!.id).toList();
     }
     return list;
   }
 
-  Color get _viewAccent {
-    if (_currentView == PosView.inventory) return T.warn;
-    if (_currentView == PosView.facility) return T.info;
-    return T.primary;
-  }
+  Color get _viewAccent =>
+      _currentView == PosView.inventory ? T.warn : T.primary;
 
   @override
   void initState() {
@@ -245,9 +205,59 @@ class _UpgradedPOSState extends State<UpgradedPOS>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_extraConsumed) return;
+    try {
+      final extra = GoRouterState.of(context).extra;
+      if (extra is Map) {
+        _pendingExtra = Map<String, dynamic>.from(extra);
+      }
+    } catch (_) {}
+    _extraConsumed = true;
+    if (!_isLoading) _applyPreselection();
+  }
+
+  @override
   void dispose() {
     _tabCtrl.dispose();
     super.dispose();
+  }
+
+  void _applyPreselection() {
+    final extra = _pendingExtra;
+    if (extra == null) return;
+    final raw = extra['preselectedTable'];
+    if (raw == null) return;
+
+    PosTable? table;
+    if (raw is PosTable) {
+      table = raw;
+    } else if (raw is Map) {
+      final id = raw['id'];
+      table = _tables.where((t) => t.id == id).firstOrNull;
+      if (table == null && id is int && raw['name'] != null) {
+        table = PosTable(id: id, name: raw['name'].toString());
+      }
+    }
+    if (table == null) return;
+
+    final dineIn = _orderTypes.where((o) {
+      final n = o.name.toLowerCase().replaceAll(RegExp(r'[-_\s]'), '');
+      return n.contains('dinein');
+    }).firstOrNull;
+
+    setState(() {
+      if (dineIn != null) _selectedOrderType = dineIn;
+      _selectedTable = table;
+    });
+    _pendingExtra = null;
+
+    final pickedName = table.name;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _toast('Table "$pickedName" selected for Dine in', T.success);
+    });
   }
 
   // ─── DATA ───────────────────────────────────────────────────────────
@@ -268,10 +278,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             .select('id, category_id, name, selling_price'),
         _supabase.from('customers').select('id, name').order('name'),
         _supabase.from('order_types').select('id, name'),
-        _supabase
-            .from('facilities')
-            .select('id, name, price_per_hour, facility_types(name)')
-            .eq('is_available', true),
         _supabase
             .from('restaurant_tables')
             .select('id, name')
@@ -325,17 +331,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       _orderTypes = (r[5] as List)
           .map((o) => PosOrderType(id: o['id'], name: o['name']))
           .toList();
-      _facilities = (r[6] as List)
-          .map(
-            (f) => PosFacility(
-              id: f['id'],
-              name: f['name'],
-              typeName: f['facility_types']?['name'] ?? 'General',
-              pricePerHour: (f['price_per_hour'] as num?)?.toDouble() ?? 0.0,
-            ),
-          )
-          .toList();
-      _tables = (r[7] as List)
+      _tables = (r[6] as List)
           .map((t) => PosTable(id: t['id'], name: t['name']))
           .toList();
 
@@ -348,6 +344,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
 
       if (widget.editOrderId != null) await _hydrateExistingOrder();
       if (mounted) setState(() => _isLoading = false);
+      _applyPreselection();
     } catch (e) {
       debugPrint('Error fetching POS data: $e');
       if (mounted) {
@@ -378,11 +375,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           .where((t) => t.id == order['order_type_id'])
           .firstOrNull;
     }
-    if (order['facility_id'] != null) {
-      _selectedFacility = _facilities
-          .where((f) => f.id == order['facility_id'])
-          .firstOrNull;
-    }
     if (order['table_id'] != null) {
       _selectedTable = _tables
           .where((t) => t.id == order['table_id'])
@@ -402,32 +394,12 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       PosProduct? p;
       if (i['menu_item_id'] != null) {
         p = _allProducts
-            .where(
-              (x) =>
-                  x.id == i['menu_item_id'] &&
-                  !x.isInventoryItem &&
-                  !x.isFacility,
-            )
+            .where((x) => x.id == i['menu_item_id'] && !x.isInventoryItem)
             .firstOrNull;
       } else if (i['inventory_item_id'] != null) {
         p = _allProducts
             .where((x) => x.id == i['inventory_item_id'] && x.isInventoryItem)
             .firstOrNull;
-      } else if (i['facility_id'] != null) {
-        final f = _facilities
-            .where((x) => x.id == i['facility_id'])
-            .firstOrNull;
-        if (f != null) {
-          p = PosProduct(
-            id: f.id,
-            categoryId: f.typeName.hashCode,
-            name: '${f.name} (Booking)',
-            price: (i['unit_price'] as num?)?.toDouble() ?? f.pricePerHour,
-            requiresPrep: false,
-            isInventoryItem: false,
-            isFacility: true,
-          );
-        }
       }
       if (p != null) _cart.add(CartItem(product: p, quantity: i['quantity']));
     }
@@ -441,8 +413,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       final i = _cart.indexWhere(
         (c) =>
             c.product.id == item.id &&
-            c.product.isInventoryItem == item.isInventoryItem &&
-            c.product.isFacility == item.isFacility,
+            c.product.isInventoryItem == item.isInventoryItem,
       );
       if (i >= 0) {
         _cart[i].quantity++;
@@ -467,7 +438,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
   void _clearCart() => setState(() {
     _cart.clear();
     _selectedCategory = null;
-    _selectedFacility = null;
     _selectedTable = null;
     _selectedCustomer = null;
     _discountAmount = 0.0;
@@ -475,7 +445,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     _isCheckoutMode = false;
   });
 
-  // ─── CHECKOUT (with atomic stock + rollback) ────────────────────────
+  // ─── CHECKOUT ───────────────────────────────────────────────────────
   Future<void> _processCheckout(
     String paymentMethod, {
     bool shouldPrint = false,
@@ -485,6 +455,13 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     if (_selectedOrderType == null) {
       _toast('Please select an Order Type first', T.warn);
       return;
+    }
+    if (_isDineIn && _selectedTable == null) {
+      _toast('Please select a Table for Dine in orders', T.warn);
+      return;
+    }
+    if (!_isDineIn && _selectedTable != null) {
+      _selectedTable = null;
     }
 
     showDialog(
@@ -509,7 +486,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     final isEdit = widget.editOrderId != null;
 
     try {
-      // 1. Pre-flight stock check
+      // 1. Stock pre-check
       for (final c in _cart) {
         if (!c.product.isInventoryItem) continue;
         final res = await _supabase
@@ -551,20 +528,17 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             .eq('order_id', widget.editOrderId!);
       }
 
-      // 3. Create / update order
-      // NOTE: column is `status`. If Supabase actually uses `order_status`,
-      //       global find-replace 'status': → 'order_status':
+      // 3. Create / update order — uses order_status (PGRST204 fix)
       final orderData = <String, dynamic>{
         'customer_id': _selectedCustomer?.id,
         'order_type_id': _selectedOrderType?.id,
-        'facility_id': _selectedFacility?.id,
         'table_id': _selectedTable?.id,
         'subtotal': _subtotalUSD,
         'discount_amount': _discountAmount,
         'tax_amount': _taxAmountUSD,
         'total_amount': _finalTotalUSD,
         'exchange_rate': _exchangeRate,
-        'status': isPaid ? 'completed' : 'active',
+        'order_status': isPaid ? 'completed' : 'active',
         'payment_status': isPaid ? 'paid' : 'unpaid',
         'payment_method': paymentMethod.toLowerCase(),
       };
@@ -588,14 +562,10 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           .map(
             (c) => {
               'order_id': orderId,
-              'menu_item_id':
-                  (c.product.isFacility || c.product.isInventoryItem)
-                  ? null
-                  : c.product.id,
+              'menu_item_id': c.product.isInventoryItem ? null : c.product.id,
               'inventory_item_id': c.product.isInventoryItem
                   ? c.product.id
                   : null,
-              'facility_id': c.product.isFacility ? c.product.id : null,
               'quantity': c.quantity,
               'unit_price': c.product.price,
               'item_total': c.total,
@@ -605,10 +575,9 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             },
           )
           .toList();
-
       await _supabase.from('order_items').insert(rows);
 
-      // 5. Atomic stock decrement via RPC
+      // 5. Stock decrement
       for (final c in _cart) {
         if (!c.product.isInventoryItem) continue;
         final ok = await _supabase.rpc(
@@ -620,7 +589,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
         }
       }
 
-      // 6. Optional print
+      // 6. Print
       if (shouldPrint) {
         final printModel = OrderModel(
           id: orderId,
@@ -663,7 +632,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
         }
       }
     } catch (e) {
-      // Rollback
       if (createdOrderId != null) {
         try {
           await _supabase
@@ -726,8 +694,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       );
     }
     final w = MediaQuery.sizeOf(context).width;
-    final isPhone = w < 720;
-    return isPhone ? _phoneScaffold() : _tabletScaffold();
+    return w < 720 ? _phoneScaffold() : _tabletScaffold();
   }
 
   Widget _tabletScaffold() => Scaffold(
@@ -763,7 +730,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
                 child: Row(
                   children: [
-                    _BrandMark(size: 32),
+                    const _BrandMark(size: 32),
                     const SizedBox(width: 10),
                     Text('POS Terminal', style: _ui(16, w: FontWeight.w800)),
                     const Spacer(),
@@ -887,7 +854,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
     decoration: const BoxDecoration(
       color: T.surface,
-      border: Border(bottom: BorderSide(color: T.lineSoft, width: 1)),
+      border: Border(bottom: BorderSide(color: T.lineSoft)),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -919,21 +886,34 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                 onTap: () => _selectDialog<PosOrderType>(
                   'Order Type',
                   _orderTypes,
-                  (i) => setState(() => _selectedOrderType = i),
+                  (i) => setState(() {
+                    _selectedOrderType = i;
+                    if (!_isDineIn) _selectedTable = null;
+                  }),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: _Selector(
-                label: 'Table',
-                value: _selectedTable?.name ?? 'Table',
-                icon: Icons.table_restaurant_outlined,
-                color: T.success,
-                onTap: () => _selectDialog<PosTable>(
-                  'Select Table',
-                  _tables,
-                  (i) => setState(() => _selectedTable = i),
+              child: Opacity(
+                opacity: _isDineIn ? 1.0 : 0.45,
+                child: _Selector(
+                  label: 'Table',
+                  value: _isDineIn
+                      ? (_selectedTable?.name ?? 'Table')
+                      : 'Dine in only',
+                  icon: Icons.table_restaurant_outlined,
+                  color: T.success,
+                  onTap: !_isDineIn
+                      ? () => _toast(
+                          'Tables are only available for Dine in orders',
+                          T.warn,
+                        )
+                      : () => _selectDialog<PosTable>(
+                          'Select Table',
+                          _tables,
+                          (i) => setState(() => _selectedTable = i),
+                        ),
                 ),
               ),
             ),
@@ -943,7 +923,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     ),
   );
 
-  // ─── CART HEADER ────────────────────────────────────────────────────
   Widget _cartHeader() => Padding(
     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
     child: Row(
@@ -988,10 +967,9 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     ),
   );
 
-  // ─── CART LIST ──────────────────────────────────────────────────────
   Widget _cartList() {
     if (_cart.isEmpty) {
-      return _EmptyState(
+      return const _EmptyState(
         icon: Icons.shopping_cart_outlined,
         title: 'Cart is empty',
         hint: 'Tap items in the menu to add',
@@ -1003,8 +981,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       separatorBuilder: (_, _) => const SizedBox(height: 6),
       itemBuilder: (_, i) {
         final item = _cart[i];
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
+        return Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
             color: T.surface,
@@ -1026,7 +1003,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '\$${item.product.price.toStringAsFixed(2)} ${item.product.isFacility ? "/hr" : "ea"}',
+                      '\$${item.product.price.toStringAsFixed(2)} ea',
                       style: _mono(10.5, w: FontWeight.w600, c: T.muted),
                     ),
                   ],
@@ -1037,13 +1014,15 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                 onDec: () => _updateQty(i, -1),
                 onInc: () => _updateQty(i, 1),
               ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 64,
-                child: Text(
-                  '\$${item.total.toStringAsFixed(2)}',
-                  textAlign: TextAlign.right,
-                  style: _mono(14, w: FontWeight.w900, c: T.primary),
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    '\$${item.total.toStringAsFixed(2)}',
+                    textAlign: TextAlign.right,
+                    overflow: TextOverflow.ellipsis,
+                    style: _mono(14, w: FontWeight.w900, c: T.primary),
+                  ),
                 ),
               ),
             ],
@@ -1058,7 +1037,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
     decoration: const BoxDecoration(
       color: T.surface,
-      border: Border(top: BorderSide(color: T.lineSoft, width: 1)),
+      border: Border(top: BorderSide(color: T.lineSoft)),
     ),
     child: Column(
       children: [
@@ -1188,9 +1167,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       builder: (ctx) => AlertDialog(
         backgroundColor: T.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-        contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-        actionsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         title: Text(title, style: _ui(17, w: FontWeight.w800)),
         content: TextField(
           controller: ctrl,
@@ -1199,7 +1175,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           style: _mono(16, w: FontWeight.w800),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: _ui(12, w: FontWeight.w500, c: T.muted2),
             prefixText: isPercent ? null : '\$ ',
             suffixText: isPercent ? ' %' : null,
             filled: true,
@@ -1207,10 +1182,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
             ),
           ),
         ),
@@ -1225,7 +1196,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: T.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -1244,13 +1214,11 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     );
   }
 
-  // ─── PAY BUTTON ─────────────────────────────────────────────────────
   Widget _payButton() {
     final isEdit = widget.editOrderId != null;
     final label = _isCheckoutMode
         ? 'BACK TO MENU'
         : (isEdit ? 'UPDATE ORDER' : 'PROCEED TO CHECKOUT');
-
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       color: T.surface,
@@ -1263,9 +1231,9 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                 ? null
                 : LinearGradient(
                     colors: _isCheckoutMode
-                        ? [T.ink2, T.ink2.withOpacity(0.85)]
+                        ? [T.ink2, T.ink2.withValues(alpha: 0.85)]
                         : (isEdit
-                              ? [T.warn, T.warn.withOpacity(0.85)]
+                              ? [T.warn, T.warn.withValues(alpha: 0.85)]
                               : [T.primary, T.primaryD]),
                   ),
             color: _cart.isEmpty ? T.lineSoft : null,
@@ -1274,8 +1242,8 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                 ? []
                 : [
                     BoxShadow(
-                      color: (_isCheckoutMode ? T.ink2 : T.primary).withOpacity(
-                        0.25,
+                      color: (_isCheckoutMode ? T.ink2 : T.primary).withValues(
+                        alpha: 0.25,
                       ),
                       blurRadius: 14,
                       offset: const Offset(0, 4),
@@ -1323,7 +1291,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     );
   }
 
-  // ─── SELECT DIALOG (with search) ────────────────────────────────────
   void _selectDialog<X>(String title, List<X> items, Function(X?) onSelect) {
     if (_isCheckoutMode) return;
     String query = '';
@@ -1334,7 +1301,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           String nameOf(X x) {
             if (x is PosCustomer) return x.name;
             if (x is PosOrderType) return x.name;
-            if (x is PosFacility) return x.name;
             if (x is PosTable) return x.name;
             return '$x';
           }
@@ -1349,8 +1315,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            titlePadding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
-            contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
             title: Text(title, style: _ui(17, w: FontWeight.w800)),
             content: SizedBox(
               width: 420,
@@ -1360,10 +1324,8 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                   TextField(
                     autofocus: true,
                     onChanged: (v) => setS(() => query = v),
-                    style: _ui(13, w: FontWeight.w600),
                     decoration: InputDecoration(
                       hintText: 'Search...',
-                      hintStyle: _ui(13, w: FontWeight.w500, c: T.muted2),
                       prefixIcon: const Icon(
                         Icons.search_rounded,
                         color: T.muted2,
@@ -1375,7 +1337,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1437,7 +1398,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     );
   }
 
-  // ─── MENU HEADER ────────────────────────────────────────────────────
   Widget _menuHeader() => Padding(
     padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
     child: Row(
@@ -1459,7 +1419,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     ),
   );
 
-  // ─── VIEW TOGGLE ────────────────────────────────────────────────────
+  // ─── VIEW TOGGLE (Menu / Retail) ────────────────────────────────────
   Widget _viewToggle() => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
     child: Container(
@@ -1481,12 +1441,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             Icons.shopping_basket_outlined,
             'Retail',
             T.warn,
-          ),
-          _seg(
-            PosView.facility,
-            Icons.calendar_month_rounded,
-            'Bookings',
-            T.info,
           ),
         ],
       ),
@@ -1514,7 +1468,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -1542,7 +1496,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     );
   }
 
-  // ─── CATEGORY TABS ──────────────────────────────────────────────────
   Widget _categoryTabs() {
     final cats = _currentCategories;
     if (cats.isEmpty) return const SizedBox.shrink();
@@ -1577,11 +1530,10 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     );
   }
 
-  // ─── ITEMS GRID (responsive) ────────────────────────────────────────
   Widget _itemsGrid() {
     final items = _currentDisplayItems;
     if (items.isEmpty) {
-      return _EmptyState(
+      return const _EmptyState(
         icon: Icons.inventory_2_outlined,
         title: 'No items here',
         hint: 'Try a different category or section',
@@ -1601,9 +1553,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           itemCount: items.length,
           itemBuilder: (_, i) => _ProductTile(
             item: items[i],
-            accent: items[i].isFacility
-                ? T.info
-                : (items[i].isInventoryItem ? T.warn : T.primary),
+            accent: items[i].isInventoryItem ? T.warn : T.primary,
             onTap: () => _addToCart(items[i]),
           ),
         );
@@ -1612,7 +1562,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
   }
 }
 
-// ─── BRAND MARK ───────────────────────────────────────────────────────
+// ─── REUSABLE WIDGETS (unchanged from before) ─────────────────────────
 class _BrandMark extends StatelessWidget {
   final double size;
   const _BrandMark({this.size = 36});
@@ -1629,7 +1579,7 @@ class _BrandMark extends StatelessWidget {
       borderRadius: BorderRadius.circular(size * 0.28),
       boxShadow: [
         BoxShadow(
-          color: T.primary.withOpacity(0.25),
+          color: T.primary.withValues(alpha: 0.25),
           blurRadius: 8,
           offset: const Offset(0, 3),
         ),
@@ -1645,7 +1595,6 @@ class _BrandMark extends StatelessWidget {
   );
 }
 
-// ─── EDIT PILL ────────────────────────────────────────────────────────
 class _EditPill extends StatelessWidget {
   final int id;
   const _EditPill({required this.id});
@@ -1660,7 +1609,6 @@ class _EditPill extends StatelessWidget {
   );
 }
 
-// ─── EMPTY STATE ──────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String title, hint;
@@ -1676,7 +1624,7 @@ class _EmptyState extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: T.surfaceAlt,
             shape: BoxShape.circle,
           ),
@@ -1697,7 +1645,6 @@ class _EmptyState extends StatelessWidget {
   );
 }
 
-// ─── ICON BUTTON ──────────────────────────────────────────────────────
 class _IconBtn extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -1726,7 +1673,6 @@ class _IconBtn extends StatelessWidget {
   }
 }
 
-// ─── QTY STEPPER ──────────────────────────────────────────────────────
 class _QtyStepper extends StatelessWidget {
   final int quantity;
   final VoidCallback onDec, onInc;
@@ -1767,7 +1713,6 @@ class _QtyStepper extends StatelessWidget {
   );
 }
 
-// ─── SELECTOR ─────────────────────────────────────────────────────────
 class _Selector extends StatelessWidget {
   final String label, value;
   final IconData icon;
@@ -1789,8 +1734,8 @@ class _Selector extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.05),
-          border: Border.all(color: color.withOpacity(0.20)),
+          color: color.withValues(alpha: 0.05),
+          border: Border.all(color: color.withValues(alpha: 0.20)),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -1798,7 +1743,7 @@ class _Selector extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.14),
+                color: color.withValues(alpha: 0.14),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 13, color: color),
@@ -1829,7 +1774,6 @@ class _Selector extends StatelessWidget {
   );
 }
 
-// ─── CATEGORY PILL ────────────────────────────────────────────────────
 class _CatPill extends StatelessWidget {
   final String title;
   final bool isSelected;
@@ -1858,7 +1802,7 @@ class _CatPill extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: accent.withOpacity(0.25),
+                    color: accent.withValues(alpha: 0.25),
                     blurRadius: 6,
                     offset: const Offset(0, 2),
                   ),
@@ -1878,7 +1822,6 @@ class _CatPill extends StatelessWidget {
   );
 }
 
-// ─── PRODUCT TILE ─────────────────────────────────────────────────────
 class _ProductTile extends StatefulWidget {
   final PosProduct item;
   final Color accent;
@@ -1913,7 +1856,7 @@ class _ProductTileState extends State<_ProductTile> {
             border: Border.all(color: T.lineSoft),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(_pressed ? 0.02 : 0.04),
+                color: Colors.black.withValues(alpha: _pressed ? 0.02 : 0.04),
                 blurRadius: _pressed ? 4 : 8,
                 offset: Offset(0, _pressed ? 1 : 3),
               ),
@@ -1926,7 +1869,7 @@ class _ProductTileState extends State<_ProductTile> {
                 flex: 5,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: accent.withOpacity(0.08),
+                    color: accent.withValues(alpha: 0.08),
                     borderRadius: const BorderRadius.vertical(
                       top: Radius.circular(12),
                     ),
@@ -1965,7 +1908,7 @@ class _ProductTileState extends State<_ProductTile> {
                       const SizedBox(height: 4),
                       Text(
                         '\$${item.price.toStringAsFixed(2)}',
-                        style: _mono(13, w: FontWeight.w900, c: accent),
+                        style: _mono(14, w: FontWeight.w900, c: accent),
                       ),
                     ],
                   ),
@@ -1979,16 +1922,16 @@ class _ProductTileState extends State<_ProductTile> {
   }
 
   Widget _fallback(Color accent) {
-    IconData icon = Icons.restaurant_rounded;
-    if (widget.item.isFacility) {
-      icon = Icons.calendar_month_rounded;
-    } else if (widget.item.isInventoryItem)
-      icon = Icons.shopping_basket_rounded;
-    return Center(child: Icon(icon, size: 30, color: accent.withOpacity(0.55)));
+    final icon = widget.item.isInventoryItem
+        ? Icons.shopping_basket_rounded
+        : Icons.restaurant_rounded;
+    return Center(
+      child: Icon(icon, size: 30, color: accent.withValues(alpha: 0.55)),
+    );
   }
 }
 
-// ─── EMBEDDED CHECKOUT PANEL ──────────────────────────────────────────
+// ─── EMBEDDED CHECKOUT PANEL (unchanged) ──────────────────────────────
 class _EmbeddedCheckoutPanel extends StatefulWidget {
   final double totalUSD, exchangeRate;
   final VoidCallback onBack;
@@ -2048,7 +1991,6 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
           ],
         ),
         const SizedBox(height: 16),
-        // Amount due banner — gold gradient
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -2061,7 +2003,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
-                color: T.primary.withOpacity(0.30),
+                color: T.primary.withValues(alpha: 0.30),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
@@ -2072,7 +2014,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             children: [
               Text(
                 'AMOUNT DUE',
-                style: _eyebrow(10, c: Colors.white.withOpacity(0.85)),
+                style: _eyebrow(10, c: Colors.white.withValues(alpha: 0.85)),
               ),
               const SizedBox(height: 6),
               Text(
@@ -2084,7 +2026,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                 style: _mono(
                   14,
                   w: FontWeight.w700,
-                  c: Colors.white.withOpacity(0.9),
+                  c: Colors.white.withValues(alpha: 0.9),
                 ),
               ),
             ],
@@ -2229,7 +2171,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: T.lineSoft, width: 1),
+              borderSide: const BorderSide(color: T.lineSoft),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -2282,7 +2224,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
             gradient: isPrimary && !underpaid
-                ? LinearGradient(colors: [color, color.withOpacity(0.82)])
+                ? LinearGradient(colors: [color, color.withValues(alpha: 0.82)])
                 : null,
             color: !isPrimary ? T.surface : (underpaid ? T.lineSoft : null),
             border: Border.all(color: underpaid ? T.line : color, width: 1.5),
@@ -2290,7 +2232,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             boxShadow: isPrimary && !underpaid
                 ? [
                     BoxShadow(
-                      color: color.withOpacity(0.25),
+                      color: color.withValues(alpha: 0.25),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),

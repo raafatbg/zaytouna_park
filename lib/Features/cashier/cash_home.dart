@@ -1,34 +1,34 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously, camel_case_types
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:async';
 import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
 
-// ─── RESPONSIVE BREAKPOINTS ────────────────────────────────────────────────
+// ─── RESPONSIVE BREAKPOINTS ──────────────────────────────────────────────
 class _Bp {
   _Bp._();
   static const double phone = 600;
-  static const double tabletPortrait = 900;
-  static const double tabletLandscape = 1200;
   static const double wide = 1600;
-
   static bool isPhone(double w) => w < phone;
   static bool isWide(double w) => w >= wide;
 }
 
-// ─── DISPLAY CURRENCY ──────────────────────────────────────────────────────
+// ─── DISPLAY CURRENCY ────────────────────────────────────────────────────
 class Money {
   static const String code = 'USD';
   static const String symbol = '\$';
 }
 
-// ─── COLOR PALETTE ─────────────────────────────────────────────────────────
+// ─── COLOR PALETTE ───────────────────────────────────────────────────────
 class ZaytounaColors {
   ZaytounaColors._();
   static const primary = Color(0xFFB8860B);
@@ -52,7 +52,7 @@ class ZaytounaColors {
   static const infoLight = Color(0xFFDBEAFE);
 }
 
-// ─── TYPOGRAPHY ────────────────────────────────────────────────────────────
+// ─── TYPOGRAPHY ──────────────────────────────────────────────────────────
 class ZaytounaTypography {
   static TextStyle displayLarge({
     FontWeight weight = FontWeight.w700,
@@ -109,13 +109,12 @@ class ZaytounaTypography {
   );
 }
 
-// ─── MODELS ────────────────────────────────────────────────────────────────
+// ─── MODELS ──────────────────────────────────────────────────────────────
 class MenuTileData {
   final String title;
   final IconData icon;
   final Color iconColor, bgColor;
   final String route;
-
   const MenuTileData({
     required this.title,
     required this.icon,
@@ -131,7 +130,6 @@ class SaleMetrics {
   final double averageOrderValue;
   final int itemsSold;
   final DateTime timestamp;
-
   SaleMetrics({
     required this.totalOrders,
     required this.totalRevenue,
@@ -141,10 +139,9 @@ class SaleMetrics {
   });
 }
 
-// ─── HOME SCREEN ───────────────────────────────────────────────────────────
+// ─── HOME SCREEN ─────────────────────────────────────────────────────────
 class PremiumCashierHome extends StatefulWidget {
   final VoidCallback onLaunchTerminal;
-
   const PremiumCashierHome({super.key, required this.onLaunchTerminal});
 
   @override
@@ -160,6 +157,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   DateTime? _lastFetchTime;
   RealtimeChannel? _realtimeChannel;
   Timer? _refreshDebounce;
+
   late Future<List<dynamic>> _recentOrdersFuture;
 
   @override
@@ -170,6 +168,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     )..forward();
+
     _recentOrdersFuture = _fetchRecentOrders();
     _setupRealtimeSubscriptions();
     _fetchMetrics();
@@ -183,7 +182,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     super.dispose();
   }
 
-  // ─── DATA ────────────────────────────────────────────────────────────────
+  // ─── DATA ──────────────────────────────────────────────────────────────
   void _setupRealtimeSubscriptions() {
     _realtimeChannel = _supabase
         .channel('dashboard_orders_insert')
@@ -213,8 +212,8 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   Future<List<dynamic>> _fetchRecentOrders() async {
     return await _supabase
         .from('orders')
-        .select('id, total_amount, created_at, status')
-        .neq('status', 'voided')
+        .select('id, total_amount, created_at, order_status')
+        .neq('order_status', 'voided')
         .order('created_at', ascending: false)
         .limit(5);
   }
@@ -233,7 +232,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
           .from('orders')
           .select('id, total_amount')
           .gte('created_at', startOfDay.toIso8601String())
-          .neq('status', 'voided');
+          .neq('order_status', 'voided');
 
       final orderIds = (salesData as List<dynamic>)
           .map((o) => o['id'])
@@ -286,7 +285,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     }
   }
 
-  // ─── UI HELPERS ──────────────────────────────────────────────────────────
+  // ─── UI HELPERS ────────────────────────────────────────────────────────
   void _showNewOrderNotification(String? orderId) {
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
@@ -435,7 +434,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     );
   }
 
-  // ─── BUILD ───────────────────────────────────────────────────────────────
+  // ─── BUILD ─────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -445,13 +444,11 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
           builder: (context, constraints) {
             final w = constraints.maxWidth;
             final isPhone = _Bp.isPhone(w);
-
             final double hPad = isPhone
                 ? 12
                 : _Bp.isWide(w)
                 ? 32
                 : 24;
-
             return FadeTransition(
               opacity: _animationController.drive(
                 Tween<double>(begin: 0.0, end: 1.0),
@@ -479,6 +476,8 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
                       sliver: SliverList(
                         delegate: SliverChildListDelegate([
                           _buildQuickLaunch(isPhone: isPhone),
+                          SizedBox(height: 12.h),
+                          _buildBookFacilityCTA(isPhone: isPhone),
                           SizedBox(height: isPhone ? 24.h : 32.h),
                           _buildMetrics(maxWidth: w),
                           SizedBox(height: isPhone ? 28.h : 40.h),
@@ -505,7 +504,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     );
   }
 
-  // ─── HEADER (plain, not Sliver) ──────────────────────────────────────────
+  // ─── HEADER ────────────────────────────────────────────────────────────
   Widget _buildProHeader({required bool isPhone}) {
     final user = RouteGuard.user;
     return Container(
@@ -519,12 +518,12 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
               color: ZaytounaColors.surface,
               borderRadius: BorderRadius.circular(16.r),
               border: Border.all(
-                color: ZaytounaColors.primary.withOpacity(0.15),
+                color: ZaytounaColors.primary.withValues(alpha: 0.15),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: ZaytounaColors.primary.withOpacity(0.08),
+                  color: ZaytounaColors.primary.withValues(alpha: 0.08),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),
@@ -594,7 +593,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     );
   }
 
-  // ─── QUICK LAUNCH ────────────────────────────────────────────────────────
+  // ─── QUICK LAUNCH: POS TERMINAL ────────────────────────────────────────
   Widget _buildQuickLaunch({required bool isPhone}) {
     return Material(
       color: Colors.transparent,
@@ -608,13 +607,13 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                ZaytounaColors.primary.withOpacity(0.12),
-                ZaytounaColors.primary.withOpacity(0.02),
+                ZaytounaColors.primary.withValues(alpha: 0.12),
+                ZaytounaColors.primary.withValues(alpha: 0.02),
               ],
             ),
             borderRadius: BorderRadius.circular(24.r),
             border: Border.all(
-              color: ZaytounaColors.primary.withOpacity(0.2),
+              color: ZaytounaColors.primary.withValues(alpha: 0.2),
               width: 1,
             ),
           ),
@@ -662,7 +661,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: ZaytounaColors.primary.withOpacity(0.3),
+                      color: ZaytounaColors.primary.withValues(alpha: 0.3),
                       blurRadius: 16,
                       offset: const Offset(0, 6),
                     ),
@@ -681,10 +680,94 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     );
   }
 
-  // ─── METRICS (responsive 1/2/4 cols) ─────────────────────────────────────
+  // ─── BOOK A FACILITY CTA ───────────────────────────────────────────────
+  Widget _buildBookFacilityCTA({required bool isPhone}) {
+    const purple = Color(0xFF8B5CF6);
+    const purpleDark = Color(0xFF6D28D9);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          context.push(Routes.bookFacility);
+        },
+        borderRadius: BorderRadius.circular(20.r),
+        child: Container(
+          padding: EdgeInsets.all(isPhone ? 16.w : 20.w),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                purple.withValues(alpha: 0.10),
+                purpleDark.withValues(alpha: 0.02),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: purple.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(isPhone ? 12.w : 14.w),
+                decoration: BoxDecoration(
+                  color: purple,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: purple.withValues(alpha: 0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  Icons.event_available_rounded,
+                  color: Colors.white,
+                  size: (isPhone ? 22 : 26).sp,
+                ),
+              ),
+              SizedBox(width: 14.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Book a Facility',
+                      style: ZaytounaTypography.subheading(
+                        fontSize: isPhone ? 15 : 18,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      'Reserve padel, courts, cabins & more',
+                      style: ZaytounaTypography.body(
+                        fontSize: isPhone ? 12 : 13,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_rounded,
+                color: purple,
+                size: (isPhone ? 18 : 22).sp,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── METRICS ───────────────────────────────────────────────────────────
   Widget _buildMetrics({required double maxWidth}) {
     final isPhone = _Bp.isPhone(maxWidth);
-
     if (_cachedMetrics == null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -700,7 +783,6 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     }
 
     final metrics = _cachedMetrics!;
-
     int crossAxisCount;
     double childAspectRatio;
     if (maxWidth < 380) {
@@ -769,7 +851,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     );
   }
 
-  // ─── MENU GRID (responsive 2/3/4/5/6 cols) ───────────────────────────────
+  // ─── MENU GRID ─────────────────────────────────────────────────────────
   Widget _buildMenuGrid(BuildContext context, {required double maxWidth}) {
     const allMenuTiles = <MenuTileData>[
       MenuTileData(
@@ -807,11 +889,19 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         bgColor: ZaytounaColors.danger,
         route: Routes.expenses,
       ),
+      // ⚡ Repointed at the new booking page
       MenuTileData(
-        title: 'Facilities',
-        icon: Icons.apartment_rounded,
+        title: 'Book Facility',
+        icon: Icons.event_available_rounded,
         iconColor: Colors.white,
         bgColor: Color(0xFF8B5CF6),
+        route: Routes.bookFacility,
+      ),
+      MenuTileData(
+        title: 'Manage Facilities',
+        icon: Icons.apartment_rounded,
+        iconColor: Colors.white,
+        bgColor: Color(0xFF6366F1),
         route: Routes.facilities,
       ),
       MenuTileData(
@@ -855,6 +945,13 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         iconColor: Colors.white,
         bgColor: ZaytounaColors.primary,
         route: Routes.reports,
+      ),
+      MenuTileData(
+        title: 'Bookings List',
+        icon: Icons.event_note_rounded,
+        iconColor: Colors.white,
+        bgColor: Color(0xFF14B8A6), // teal — distinct from purple/indigo
+        route: Routes.facilityBookings,
       ),
       MenuTileData(
         title: 'Settings',
@@ -914,7 +1011,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
             border: Border.all(color: ZaytounaColors.border, width: 1.5),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.03),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -930,7 +1027,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: data.bgColor.withOpacity(0.3),
+                      color: data.bgColor.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -964,7 +1061,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     );
   }
 
-  // ─── RECENT ACTIVITY ─────────────────────────────────────────────────────
+  // ─── RECENT ACTIVITY ───────────────────────────────────────────────────
   Widget _buildRecentActivity({required bool isPhone}) {
     return FutureBuilder<List<dynamic>>(
       future: _recentOrdersFuture,
@@ -1133,13 +1230,13 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   }
 }
 
+// ─── METRIC CARD ─────────────────────────────────────────────────────────
 class _MetricCard extends StatelessWidget {
   final String title;
   final String value;
   final String unit;
   final IconData icon;
   final Color color;
-
   const _MetricCard({
     required this.title,
     required this.value,
@@ -1158,7 +1255,7 @@ class _MetricCard extends StatelessWidget {
         border: Border.all(color: ZaytounaColors.border, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1171,7 +1268,7 @@ class _MetricCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(8.w),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10.r),
             ),
             child: Icon(icon, color: color, size: 18.sp),

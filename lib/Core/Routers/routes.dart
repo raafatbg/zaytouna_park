@@ -24,6 +24,8 @@ class Routes {
   static const String tables = '/tables';
   static const String manageTables = '/manage-tables';
   static const String facilities = '/facilities';
+  static const String bookFacility = '/book-facility'; // 🆕 NEW
+  static const String facilityBookings = '/facility-bookings';
 
   // INVENTORY & MENU
   static const String inventory = '/inventory';
@@ -60,6 +62,7 @@ class Routes {
       home: 'Dashboard',
       pos: 'Point of Sale',
       bookings: 'Sports Bookings',
+      facilityBookings: 'Bookings List',
       playground: 'Playground',
       tables: 'Restaurant Tables',
       manageTables: 'Manage Tables',
@@ -70,8 +73,10 @@ class Routes {
       settings: 'Settings',
       menu: 'Menu Management',
       facilities: 'Facilities',
+      bookFacility: 'Book a Facility', // 🆕
       sales: 'Sales',
       reports: 'Reports',
+      profile: 'Staff Profile',
     };
     return names[route] ?? 'Zaytouna Park';
   }
@@ -94,15 +99,19 @@ class Routes {
       settings: Icons.settings_rounded,
       menu: Icons.restaurant_menu_rounded,
       facilities: Icons.apartment_rounded,
+      bookFacility: Icons.event_available_rounded, // 🆕
+      facilityBookings: Icons.event_note_rounded,
       sales: Icons.attach_money_rounded,
       reports: Icons.bar_chart_rounded,
+      profile: Icons.person_pin_rounded,
     };
     return icons[route] ?? Icons.circle_outlined;
   }
 
-  static const List<String> mainNavigation = [
+  static const List<String> mainNavigation = <String>[
     home,
     pos,
+    bookFacility, // 🆕 between pos and bookings
     bookings,
     playground,
     tables,
@@ -153,6 +162,9 @@ class AppPermissions {
         return useTerminal;
       case Routes.bookings:
       case Routes.playground:
+      case Routes.bookFacility: // 🆕 cashiers with create_bookings can use it
+        return createBookings;
+      case Routes.facilityBookings: // 🆕 same permission as bookFacility
         return createBookings;
       case Routes.facilities:
         return manageFacilities;

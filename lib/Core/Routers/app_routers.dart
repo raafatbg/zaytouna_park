@@ -21,6 +21,8 @@ import 'package:zaytouna_park/Features/cashier/Shell/appshell.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Facilities/facilities_booking_page.dart'; // 🆕
+import 'package:zaytouna_park/Features/cashier/Widgets/Facilities/facility_bookings_list_page.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
@@ -45,14 +47,25 @@ class AppRouter {
     redirect: _redirect,
     errorBuilder: (context, state) =>
         _ErrorScreen(message: state.error?.toString()),
-    routes: [
-      // ─── AUTH ──────────────────────────────────────────────────────────────
+    routes: <RouteBase>[
+      // ─── AUTH ────────────────────────────────────────────────────────────
       GoRoute(
         path: Routes.login,
         pageBuilder: (c, s) => _fade(state: s, child: const LoginScreen()),
       ),
+      GoRoute(
+        path: Routes.forgotPassword,
+        pageBuilder: (c, s) => _fade(
+          state: s,
+          child: const PlaceholderScreen(
+            title: 'Forgot Password',
+            message: 'Password recovery coming soon.',
+            icon: Icons.lock_reset_rounded,
+          ),
+        ),
+      ),
 
-      // ─── DASHBOARDS ────────────────────────────────────────────────────────
+      // ─── DASHBOARDS ──────────────────────────────────────────────────────
       GoRoute(
         path: Routes.adminDashboard,
         pageBuilder: (c, s) => _fade(state: s, child: AdminShellScreen()),
@@ -83,13 +96,13 @@ class AppRouter {
         ),
       ),
 
-      // ─── POS ───────────────────────────────────────────────────────────────
+      // ─── POS ─────────────────────────────────────────────────────────────
       GoRoute(
         path: Routes.pos,
         pageBuilder: (c, s) => _scale(state: s, child: const UpgradedPOS()),
       ),
 
-      // ─── VENUE ─────────────────────────────────────────────────────────────
+      // ─── VENUE ───────────────────────────────────────────────────────────
       GoRoute(
         path: Routes.bookings,
         pageBuilder: (c, s) => _slide(
@@ -127,7 +140,19 @@ class AppRouter {
             _slide(state: s, child: const FacilitiesScreen()),
       ),
 
-      // ─── INVENTORY & BACK OFFICE ───────────────────────────────────────────
+      // 🆕 BOOK A FACILITY (cashier-facing)
+      GoRoute(
+        path: Routes.bookFacility,
+        pageBuilder: (c, s) =>
+            _slide(state: s, child: const FacilitiesBookingPage()),
+      ),
+      GoRoute(
+        path: Routes.facilityBookings,
+        pageBuilder: (c, s) =>
+            _slide(state: s, child: const FacilityBookingsListPage()),
+      ),
+
+      // ─── INVENTORY & BACK OFFICE ─────────────────────────────────────────
       GoRoute(
         path: Routes.inventory,
         pageBuilder: (c, s) => _slide(state: s, child: const InventoryScreen()),
@@ -146,7 +171,7 @@ class AppRouter {
             _slide(state: s, child: const MenuManagementScreen()),
       ),
 
-      // ─── SALES & FINANCE ───────────────────────────────────────────────────
+      // ─── SALES & FINANCE ─────────────────────────────────────────────────
       GoRoute(
         path: Routes.orders,
         pageBuilder: (c, s) => _slide(state: s, child: const OrdersScreen()),
@@ -172,7 +197,7 @@ class AppRouter {
         pageBuilder: (c, s) => _slide(state: s, child: const AnalyticsScreen()),
       ),
 
-      // ─── SYSTEM ────────────────────────────────────────────────────────────
+      // ─── SYSTEM ──────────────────────────────────────────────────────────
       GoRoute(
         path: Routes.settings,
         pageBuilder: (c, s) => _slide(state: s, child: const SettingsScreen()),
@@ -187,10 +212,19 @@ class AppRouter {
           ),
         ),
       ),
+
+      // ─── ERROR ───────────────────────────────────────────────────────────
+      GoRoute(
+        path: Routes.notFound,
+        pageBuilder: (c, s) => _fade(
+          state: s,
+          child: const _ErrorScreen(message: 'Page not found'),
+        ),
+      ),
     ],
   );
 
-  // ─── REDIRECT ────────────────────────────────────────────────────────────
+  // ─── REDIRECT ──────────────────────────────────────────────────────────────
   static String? _redirect(BuildContext context, GoRouterState state) {
     final loggedIn = RouteGuard.isAuthenticated;
     final loc = state.matchedLocation;
@@ -203,7 +237,6 @@ class AppRouter {
     if (required != null && !RouteGuard.hasPermission(required)) {
       return _dashboardForCurrentRole();
     }
-
     return null;
   }
 
@@ -222,7 +255,7 @@ class AppRouter {
     }
   }
 
-  // ─── TRANSITIONS ─────────────────────────────────────────────────────────
+  // ─── TRANSITIONS ───────────────────────────────────────────────────────────
   static Page<dynamic> _fade({
     required GoRouterState state,
     required Widget child,

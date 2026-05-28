@@ -1,9 +1,11 @@
 // ignore_for_file: deprecated_member_use, use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
@@ -70,7 +72,6 @@ class NavMeta {
   final IconData icon;
   final String label;
   final String routeName;
-
   const NavMeta({
     required this.tab,
     required this.icon,
@@ -162,7 +163,6 @@ const _allNavItems = [
 
 class CashierShellScreen extends StatefulWidget {
   const CashierShellScreen({super.key});
-
   @override
   State<CashierShellScreen> createState() => _CashierShellScreenState();
 }
@@ -182,7 +182,6 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
       final p = AppPermissions.requiredFor(item.routeName);
       return p == null || RouteGuard.hasPermission(p);
     }).toList();
-
     _activeTab = _allowedTabs.isNotEmpty
         ? _allowedTabs.first.tab
         : NavTab.dashboard;
@@ -195,10 +194,9 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
         final w = constraints.maxWidth;
         final isPhone = Breakpoints.isPhone(w);
         final isDesktop = Breakpoints.isDesktop(w); // ≥1200 → full sidebar
-        final showSidebar = !isPhone; // tablet portrait + landscape + desktop
+        final showSidebar = !isPhone; // tablet+ → some sidebar
         final sidebarCollapsed = !isDesktop && !isPhone; // 600–1199 → icon rail
 
-<<<<<<< HEAD
         return Scaffold(
           backgroundColor: ShellColors.bg,
           drawer: isPhone
@@ -208,7 +206,7 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
                     activeTab: _activeTab,
                     collapsed: false,
                     onTab: (t) {
-                      Navigator.pop(context);
+                      Navigator.pop(context); // close drawer
                       _handleTabSelection(t);
                     },
                     onLogout: () => _confirmLogout(context),
@@ -246,41 +244,6 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
                             key: ValueKey(_activeTab),
                             child: _buildPage(),
                           ),
-=======
-          return Row(
-            children: [
-              if (isWide)
-                _PremiumSidebar(
-                  allowedTabs: _allowedTabs,
-                  activeTab: _activeTab,
-                  onTab: _handleTabSelection,
-                  onLogout: () => _confirmLogout(context),
-                ),
-              Expanded(
-                child: Column(
-                  children: [
-                    _ShellHeader(
-                      activeTab: _activeTab,
-                      allowedTabs: _allowedTabs,
-                      isWide: isWide,
-                      onMenuTap: () => Scaffold.of(context).openDrawer(),
-                      onBackToDashboard: () => setState(() => _activeTab = NavTab.dashboard),
-                    ),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: child,
-                          );
-                        },
-                        child: KeyedSubtree(
-                          key: ValueKey(_activeTab),
-                          child: _buildPage(),
->>>>>>> d5c747211cc5e5e8e8bab16f4e398763a92e6119
                         ),
                       ),
                       if (isPhone)
@@ -441,14 +404,13 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
   }
 }
 
-// ─── SIDEBAR (responsive: collapsed icon-rail or full) ─────────────────────
+// ─── SIDEBAR (collapsed icon-rail or full) ─────────────────────────────────
 class _PremiumSidebar extends StatelessWidget {
   final List<NavMeta> allowedTabs;
   final NavTab activeTab;
   final bool collapsed;
   final ValueChanged<NavTab> onTab;
   final VoidCallback onLogout;
-
   const _PremiumSidebar({
     required this.allowedTabs,
     required this.activeTab,
@@ -460,7 +422,6 @@ class _PremiumSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double width = collapsed ? 80 : 260;
-
     return Container(
       width: width,
       decoration: const BoxDecoration(
@@ -560,7 +521,6 @@ class _SidebarItem extends StatelessWidget {
   final bool isActive;
   final bool collapsed;
   final VoidCallback onTap;
-
   const _SidebarItem({
     required this.meta,
     required this.isActive,
@@ -641,26 +601,14 @@ class _SidebarItem extends StatelessWidget {
 class _ShellHeader extends StatelessWidget {
   final List<NavMeta> allowedTabs;
   final NavTab activeTab;
-<<<<<<< HEAD
   final bool isPhone;
   final bool showMenuButton;
-=======
-  final bool isWide;
-  final VoidCallback onMenuTap;
-  final VoidCallback? onBackToDashboard;
->>>>>>> d5c747211cc5e5e8e8bab16f4e398763a92e6119
 
   const _ShellHeader({
     required this.allowedTabs,
     required this.activeTab,
-<<<<<<< HEAD
     required this.isPhone,
     required this.showMenuButton,
-=======
-    required this.isWide,
-    required this.onMenuTap,
-    this.onBackToDashboard,
->>>>>>> d5c747211cc5e5e8e8bab16f4e398763a92e6119
   });
 
   @override
@@ -698,18 +646,6 @@ class _ShellHeader extends StatelessWidget {
             ),
             SizedBox(width: 4.w),
           ],
-          // Show Back button when not on dashboard
-          if (activeTab != NavTab.dashboard)
-            IconButton(
-              onPressed: onBackToDashboard ?? () {
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  Routes.cashierDashboard,
-                  (r) => false,
-                );
-              },
-              icon: const Icon(Icons.arrow_back_rounded, color: ShellColors.textSecondary),
-            ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -891,7 +827,6 @@ class _PremiumBottomNav extends StatelessWidget {
   final List<NavMeta> allowedTabs;
   final NavTab activeTab;
   final ValueChanged<NavTab> onTab;
-
   const _PremiumBottomNav({
     required this.allowedTabs,
     required this.activeTab,
