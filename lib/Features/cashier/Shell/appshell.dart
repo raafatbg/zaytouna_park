@@ -1,166 +1,107 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
+// lib/Features/Home/Shell/cashier_shell.dart
+// ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Facilities/facilities.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
-import 'package:zaytouna_park/Features/cashier/cash_home.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
+
 import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
+
+import 'package:zaytouna_park/Features/cashier/Widgets/Tables/tables.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Tables/manage_tables_page.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Facilities/facilities_booking_page.dart';
+import 'package:zaytouna_park/Features/cashier/Widgets/Facilities/facility_bookings_list_page.dart';
+import 'package:zaytouna_park/Features/cashier/cash_home.dart';
+
 import 'package:zaytouna_park/Features/kitchen/widgets/menu%20mangement/menumanagementscreen.dart';
 
-// ─── RESPONSIVE BREAKPOINTS ────────────────────────────────────────────────
-class Breakpoints {
-  Breakpoints._();
-  static const double phone = 600;
-  static const double tabletPortrait = 900;
-  static const double tabletLandscape = 1200;
-  static const double wide = 1600;
-
-  static bool isPhone(double w) => w < phone;
-  static bool isTabletPortrait(double w) => w >= phone && w < tabletPortrait;
-  static bool isTabletLandscape(double w) =>
-      w >= tabletPortrait && w < tabletLandscape;
-  static bool isDesktop(double w) => w >= tabletLandscape;
-}
-
-class ShellColors {
-  ShellColors._();
+// ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
+class _C {
+  _C._();
+  static const primary = Color(0xFF1A6B3C);
+  static const primaryD = Color(0xFF134D2B);
+  static const primaryL = Color(0xFFE8F5EE);
+  static const accent = Color(0xFFD4A017);
   static const bg = Color(0xFFFFFFFF);
-  static const sidebarBg = Color(0xFFF8F9FA);
-  static const sidebarAccent = Color(0xFFE9ECEF);
-  static const activeBlue = Color(0xFFB8860B);
-  static const textPrimary = Color(0xFF212529);
-  static const textSecondary = Color(0xFF6C757D);
-  static const textTertiary = Color(0xFFADB5BD);
+  static const sidebarBg = Color(0xFFF8FAF9);
   static const surface = Color(0xFFFFFFFF);
-  static const border = Color(0xFFE9ECEF);
-  static const hover = Color(0xFFF1F3F5);
+  static const border = Color(0xFFDDE6DF);
+  static const ink = Color(0xFF0D1F15);
+  static const muted = Color(0xFF6B7F72);
+  static const muted2 = Color(0xFFA0B0A7);
+  static const danger = Color(0xFFDC2626);
+  static const dangerBg = Color(0xFFFEE2E2);
 }
 
-enum NavTab {
-  dashboard,
+// ─── NAV TABS ────────────────────────────────────────────────────────────────
+enum CashierTab {
+  home,
   pos,
-  menu,
-  inventory,
-  expenses,
-  facilities,
-  sales,
   orders,
   customers,
-  categories,
-  suppliers,
-  analytics,
-  settings,
+  tables,
+  manageTables,
+  bookFacility,
+  facilityBookings,
+  sales,
+  expenses,
+  inventory,
+  menu,
 }
 
-class NavMeta {
-  final NavTab tab;
+// ─── NAV ITEM MODEL ──────────────────────────────────────────────────────────
+class _NavItem {
+  final CashierTab tab;
   final IconData icon;
   final String label;
-  final String routeName;
-  const NavMeta({
-    required this.tab,
-    required this.icon,
-    required this.label,
-    required this.routeName,
-  });
+  final String? section; // section header above this item
+  const _NavItem(this.tab, this.icon, this.label, {this.section});
 }
 
-const _allNavItems = [
-  NavMeta(
-    tab: NavTab.dashboard,
-    icon: Icons.grid_view_rounded,
-    label: 'Dashboard',
-    routeName: Routes.home,
+const _navItems = <_NavItem>[
+  // ── DAILY OPS
+  _NavItem(CashierTab.home, Icons.home_rounded, 'Home', section: 'DAILY OPS'),
+  _NavItem(CashierTab.pos, Icons.point_of_sale_rounded, 'POS Terminal'),
+  _NavItem(CashierTab.orders, Icons.receipt_long_rounded, 'Orders'),
+  _NavItem(CashierTab.customers, Icons.people_rounded, 'Customers'),
+  _NavItem(CashierTab.tables, Icons.table_restaurant_rounded, 'Tables'),
+  // ── FACILITIES
+  _NavItem(
+    CashierTab.bookFacility,
+    Icons.event_available_rounded,
+    'Book Facility',
+    section: 'FACILITIES',
   ),
-  NavMeta(
-    tab: NavTab.pos,
-    icon: Icons.point_of_sale_rounded,
-    label: 'POS Terminal',
-    routeName: Routes.pos,
+  _NavItem(
+    CashierTab.facilityBookings,
+    Icons.event_note_rounded,
+    'Bookings List',
   ),
-  NavMeta(
-    tab: NavTab.menu,
-    icon: Icons.restaurant_menu_rounded,
-    label: 'Menu',
-    routeName: Routes.menu,
+  // ── MANAGEMENT
+  _NavItem(
+    CashierTab.sales,
+    Icons.attach_money_rounded,
+    'Sales Report',
+    section: 'MANAGEMENT',
   ),
-  NavMeta(
-    tab: NavTab.inventory,
-    icon: Icons.inventory_2_rounded,
-    label: 'Inventory',
-    routeName: Routes.inventory,
+  _NavItem(
+    CashierTab.expenses,
+    Icons.account_balance_wallet_rounded,
+    'Expenses & Bills',
   ),
-  NavMeta(
-    tab: NavTab.expenses,
-    icon: Icons.account_balance_wallet_rounded,
-    label: 'Expenses',
-    routeName: Routes.expenses,
-  ),
-  NavMeta(
-    tab: NavTab.facilities,
-    icon: Icons.apartment_rounded,
-    label: 'Facilities',
-    routeName: Routes.facilities,
-  ),
-  NavMeta(
-    tab: NavTab.sales,
-    icon: Icons.attach_money_rounded,
-    label: 'Sales',
-    routeName: Routes.sales,
-  ),
-  NavMeta(
-    tab: NavTab.orders,
-    icon: Icons.list_rounded,
-    label: 'Orders',
-    routeName: Routes.orders,
-  ),
-  NavMeta(
-    tab: NavTab.customers,
-    icon: Icons.people_rounded,
-    label: 'Customers',
-    routeName: Routes.customers,
-  ),
-  NavMeta(
-    tab: NavTab.categories,
-    icon: Icons.category_rounded,
-    label: 'Categories',
-    routeName: Routes.categories,
-  ),
-  NavMeta(
-    tab: NavTab.suppliers,
-    icon: Icons.local_shipping_rounded,
-    label: 'Suppliers',
-    routeName: Routes.suppliers,
-  ),
-  NavMeta(
-    tab: NavTab.analytics,
-    icon: Icons.insights_rounded,
-    label: 'Analytics',
-    routeName: Routes.reports,
-  ),
-  NavMeta(
-    tab: NavTab.settings,
-    icon: Icons.settings_rounded,
-    label: 'Settings',
-    routeName: Routes.settings,
-  ),
+  _NavItem(CashierTab.inventory, Icons.inventory_2_rounded, 'Inventory'),
+  _NavItem(CashierTab.menu, Icons.restaurant_menu_rounded, 'Menu Management'),
+  _NavItem(CashierTab.manageTables, Icons.edit_note_rounded, 'Manage Tables'),
 ];
 
+// ─── SHELL ───────────────────────────────────────────────────────────────────
 class CashierShellScreen extends StatefulWidget {
   const CashierShellScreen({super.key});
   @override
@@ -168,233 +109,269 @@ class CashierShellScreen extends StatefulWidget {
 }
 
 class _CashierShellScreenState extends State<CashierShellScreen> {
-  late NavTab _activeTab;
-  late List<NavMeta> _allowedTabs;
+  CashierTab _current = CashierTab.home;
 
-  @override
-  void initState() {
-    super.initState();
-    _calculateAllowedTabs();
-  }
+  void _select(CashierTab t) => setState(() => _current = t);
 
-  void _calculateAllowedTabs() {
-    _allowedTabs = _allNavItems.where((item) {
-      final p = AppPermissions.requiredFor(item.routeName);
-      return p == null || RouteGuard.hasPermission(p);
-    }).toList();
-    _activeTab = _allowedTabs.isNotEmpty
-        ? _allowedTabs.first.tab
-        : NavTab.dashboard;
+  /// Called by PremiumCashierHome's "Launch Terminal" button
+  void _launchTerminal() => _select(CashierTab.pos);
+
+  Widget _buildPage() {
+    switch (_current) {
+      case CashierTab.home:
+        return PremiumCashierHome(onLaunchTerminal: _launchTerminal);
+      case CashierTab.pos:
+        return const UpgradedPOS();
+      case CashierTab.orders:
+        return const OrdersScreen();
+      case CashierTab.customers:
+        return const CustomersScreen();
+      case CashierTab.tables:
+        return const TablesPage();
+      case CashierTab.manageTables:
+        return const ManageTablesPage();
+      case CashierTab.bookFacility:
+        return const FacilitiesBookingPage();
+      case CashierTab.facilityBookings:
+        return const FacilityBookingsListPage();
+      case CashierTab.sales:
+        return const SalesScreen();
+      case CashierTab.expenses:
+        return const ExpensesScreen();
+      case CashierTab.inventory:
+        return const InventoryScreen();
+      case CashierTab.menu:
+        return const MenuManagementScreen();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final w = constraints.maxWidth;
-        final isPhone = Breakpoints.isPhone(w);
-        final isDesktop = Breakpoints.isDesktop(w); // ≥1200 → full sidebar
-        final showSidebar = !isPhone; // tablet+ → some sidebar
-        final sidebarCollapsed = !isDesktop && !isPhone; // 600–1199 → icon rail
+    final w = MediaQuery.of(context).size.width;
+    final isMobile = w < 700;
+    return Scaffold(
+      backgroundColor: _C.bg,
+      body: isMobile ? _buildMobile() : _buildDesktop(),
+    );
+  }
 
-        return Scaffold(
-          backgroundColor: ShellColors.bg,
-          drawer: isPhone
-              ? Drawer(
-                  child: _PremiumSidebar(
-                    allowedTabs: _allowedTabs,
-                    activeTab: _activeTab,
-                    collapsed: false,
-                    onTab: (t) {
-                      Navigator.pop(context); // close drawer
-                      _handleTabSelection(t);
-                    },
-                    onLogout: () => _confirmLogout(context),
-                  ),
-                )
-              : null,
-          body: SafeArea(
+  // ── DESKTOP: sidebar + content ─────────────────────────────────────────────
+  Widget _buildDesktop() {
+    return Row(
+      children: [
+        _Sidebar(current: _current, onSelect: _select),
+        const VerticalDivider(width: 1, thickness: 1, color: _C.border),
+        Expanded(child: _buildPage()),
+      ],
+    );
+  }
+
+  // ── MOBILE: bottom nav + content ───────────────────────────────────────────
+  Widget _buildMobile() {
+    const bottomTabs = [
+      CashierTab.home,
+      CashierTab.pos,
+      CashierTab.orders,
+      CashierTab.tables,
+      CashierTab.bookFacility,
+    ];
+    return Column(
+      children: [
+        Expanded(child: _buildPage()),
+        _BottomNav(tabs: bottomTabs, current: _current, onSelect: _select),
+      ],
+    );
+  }
+}
+
+// ─── SIDEBAR ─────────────────────────────────────────────────────────────────
+class _Sidebar extends StatelessWidget {
+  final CashierTab current;
+  final ValueChanged<CashierTab> onSelect;
+  const _Sidebar({required this.current, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 220,
+      color: _C.sidebarBg,
+      child: Column(
+        children: [
+          // Logo / brand header
+          Container(
+            height: 64,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            alignment: Alignment.centerLeft,
             child: Row(
               children: [
-                if (showSidebar)
-                  _PremiumSidebar(
-                    allowedTabs: _allowedTabs,
-                    activeTab: _activeTab,
-                    collapsed: sidebarCollapsed,
-                    onTab: _handleTabSelection,
-                    onLogout: () => _confirmLogout(context),
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: _C.primary,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                Expanded(
-                  child: Column(
-                    children: [
-                      _ShellHeader(
-                        activeTab: _activeTab,
-                        allowedTabs: _allowedTabs,
-                        isPhone: isPhone,
-                        showMenuButton: isPhone,
-                      ),
-                      Expanded(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          switchInCurve: Curves.easeOutCubic,
-                          switchOutCurve: Curves.easeInCubic,
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(opacity: animation, child: child),
-                          child: KeyedSubtree(
-                            key: ValueKey(_activeTab),
-                            child: _buildPage(),
-                          ),
-                        ),
-                      ),
-                      if (isPhone)
-                        _PremiumBottomNav(
-                          allowedTabs: _allowedTabs,
-                          activeTab: _activeTab,
-                          onTab: _handleTabSelection,
-                        ),
-                    ],
+                  child: const Icon(
+                    Icons.park_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Zaytouna',
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: _C.ink,
                   ),
                 ),
               ],
             ),
           ),
-        );
-      },
+          const Divider(height: 1, color: _C.border),
+          Expanded(
+            child: ListView.builder(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _navItems.length,
+              itemBuilder: (_, i) {
+                final item = _navItems[i];
+                final isActive = item.tab == current;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (item.section != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                        child: Text(
+                          item.section!,
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: _C.muted2,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                    _SidebarTile(
+                      item: item,
+                      isActive: isActive,
+                      onTap: () => onSelect(item.tab),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const Divider(height: 1, color: _C.border),
+          // Logout
+          _LogoutButton(),
+        ],
+      ),
     );
   }
+}
 
-  void _handleTabSelection(NavTab tab) {
-    if (tab == NavTab.pos) {
-      context.push(Routes.pos);
-    } else {
-      setState(() => _activeTab = tab);
-    }
-  }
+class _SidebarTile extends StatelessWidget {
+  final _NavItem item;
+  final bool isActive;
+  final VoidCallback onTap;
+  const _SidebarTile({
+    required this.item,
+    required this.isActive,
+    required this.onTap,
+  });
 
-  Widget _buildPage() {
-    switch (_activeTab) {
-      case NavTab.dashboard:
-        return PremiumCashierHome(
-          onLaunchTerminal: () => context.push(Routes.pos),
-        );
-      case NavTab.pos:
-        return const UpgradedPOS();
-      case NavTab.sales:
-        return const SalesScreen();
-      case NavTab.menu:
-        return const MenuManagementScreen();
-      case NavTab.inventory:
-        return const InventoryScreen();
-      case NavTab.categories:
-        return const CategoryScreen();
-      case NavTab.suppliers:
-        return const SuppliersScreen();
-      case NavTab.customers:
-        return const CustomersScreen();
-      case NavTab.expenses:
-        return const ExpensesScreen();
-      case NavTab.analytics:
-        return const AnalyticsScreen();
-      case NavTab.facilities:
-        return const FacilitiesScreen();
-      case NavTab.settings:
-        return const SettingsScreen();
-      case NavTab.orders:
-        return const OrdersScreen();
-    }
-  }
-
-  void _confirmLogout(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: ShellColors.bg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20.r),
-        ),
-        child: Container(
-          padding: EdgeInsets.all(24.w),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(16.w),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-                child: Icon(
-                  Icons.logout_rounded,
-                  color: const Color(0xFFEF4444),
-                  size: 32.sp,
-                ),
-              ),
-              SizedBox(height: 20.h),
-              Text(
-                'Sign Out',
-                style: GoogleFonts.inter(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.w600,
-                  color: ShellColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: 12.h),
-              Text(
-                'Are you sure you want to sign out?',
-                style: GoogleFonts.inter(
-                  fontSize: 15.sp,
-                  color: ShellColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 28.h),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                          side: const BorderSide(color: ShellColors.border),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          color: ShellColors.textSecondary,
-                        ),
-                      ),
-                    ),
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      child: Material(
+        color: isActive ? _C.primaryL : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            height: 42,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                // Active indicator bar
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 3,
+                  height: isActive ? 20 : 0,
+                  decoration: BoxDecoration(
+                    color: _C.primary,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        Navigator.pop(ctx);
-                        await RouteGuard.logout();
-                        if (mounted) context.go(Routes.login);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFEF4444),
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        'Sign Out',
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  item.icon,
+                  size: 18,
+                  color: isActive ? _C.primary : _C.muted,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  item.label,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    color: isActive ? _C.primary : _C.ink,
+                  ),
+                ),
+                if (isActive) ...[
+                  const Spacer(),
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: _C.primary,
+                      shape: BoxShape.circle,
                     ),
                   ),
                 ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LogoutButton extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final user = RouteGuard.user;
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: InkWell(
+        onTap: () => _confirmLogout(context),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: _C.dangerBg,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.logout_rounded, size: 16, color: _C.danger),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  user?.fullName ?? 'Sign Out',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _C.danger,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -402,495 +379,119 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
       ),
     );
   }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _C.danger),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Sign Out',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (result == true && context.mounted) {
+      await RouteGuard.logout();
+      if (context.mounted)
+        Navigator.pushNamedAndRemoveUntil(context, Routes.login, (_) => false);
+    }
+  }
 }
 
-// ─── SIDEBAR (collapsed icon-rail or full) ─────────────────────────────────
-class _PremiumSidebar extends StatelessWidget {
-  final List<NavMeta> allowedTabs;
-  final NavTab activeTab;
-  final bool collapsed;
-  final ValueChanged<NavTab> onTab;
-  final VoidCallback onLogout;
-  const _PremiumSidebar({
-    required this.allowedTabs,
-    required this.activeTab,
-    required this.collapsed,
-    required this.onTab,
-    required this.onLogout,
+// ─── BOTTOM NAV (mobile) ─────────────────────────────────────────────────────
+class _BottomNav extends StatelessWidget {
+  final List<CashierTab> tabs;
+  final CashierTab current;
+  final ValueChanged<CashierTab> onSelect;
+  const _BottomNav({
+    required this.tabs,
+    required this.current,
+    required this.onSelect,
   });
+
+  IconData _icon(CashierTab t) {
+    switch (t) {
+      case CashierTab.home:
+        return Icons.home_rounded;
+      case CashierTab.pos:
+        return Icons.point_of_sale_rounded;
+      case CashierTab.orders:
+        return Icons.receipt_long_rounded;
+      case CashierTab.tables:
+        return Icons.table_restaurant_rounded;
+      case CashierTab.bookFacility:
+        return Icons.event_available_rounded;
+      default:
+        return Icons.circle;
+    }
+  }
+
+  String _label(CashierTab t) {
+    switch (t) {
+      case CashierTab.home:
+        return 'Home';
+      case CashierTab.pos:
+        return 'Terminal';
+      case CashierTab.orders:
+        return 'Orders';
+      case CashierTab.tables:
+        return 'Tables';
+      case CashierTab.bookFacility:
+        return 'Facilities';
+      default:
+        return '';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final double width = collapsed ? 80 : 260;
     return Container(
-      width: width,
       decoration: const BoxDecoration(
-        color: ShellColors.bg,
-        border: Border(right: BorderSide(color: ShellColors.border, width: 1)),
+        color: Colors.white,
+        border: Border(top: BorderSide(color: _C.border)),
       ),
-      child: Column(
-        children: [
-          SizedBox(height: 24.h),
-          _SidebarLogo(collapsed: collapsed),
-          SizedBox(height: 24.h),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.symmetric(horizontal: collapsed ? 10 : 12),
-              physics: const BouncingScrollPhysics(),
-              children: allowedTabs
-                  .map(
-                    (item) => _SidebarItem(
-                      meta: item,
-                      isActive: activeTab == item.tab,
-                      collapsed: collapsed,
-                      onTap: () => onTab(item.tab),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: collapsed ? 10 : 12,
-              vertical: 16.h,
-            ),
-            child: _SidebarLogout(collapsed: collapsed, onTap: onLogout),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SidebarLogo extends StatelessWidget {
-  final bool collapsed;
-  const _SidebarLogo({required this.collapsed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: collapsed ? 0 : 16),
-      child: Row(
-        mainAxisAlignment: collapsed
-            ? MainAxisAlignment.center
-            : MainAxisAlignment.start,
-        children: [
-          Container(
-            height: 40,
-            width: 40,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFB8860B), Color(0xFF8B6914)],
-              ),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Center(
-              child: Text(
-                'Z',
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontSize: 20.sp,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ),
-          if (!collapsed) ...[
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Text(
-                'Zaytouna Park',
-                style: GoogleFonts.inter(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  color: ShellColors.textPrimary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _SidebarItem extends StatelessWidget {
-  final NavMeta meta;
-  final bool isActive;
-  final bool collapsed;
-  final VoidCallback onTap;
-  const _SidebarItem({
-    required this.meta,
-    required this.isActive,
-    required this.collapsed,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final Widget content = Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: collapsed ? 0 : 14,
-        vertical: 12,
-      ),
-      margin: EdgeInsets.only(bottom: 4.h),
-      decoration: BoxDecoration(
-        color: isActive
-            ? ShellColors.activeBlue.withOpacity(0.1)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(12.r),
-      ),
-      child: collapsed
-          ? Center(
-              child: Icon(
-                meta.icon,
-                color: isActive
-                    ? ShellColors.activeBlue
-                    : ShellColors.textSecondary,
-                size: 22.sp,
-              ),
-            )
-          : Row(
-              children: [
-                Icon(
-                  meta.icon,
-                  color: isActive
-                      ? ShellColors.activeBlue
-                      : ShellColors.textSecondary,
-                  size: 20.sp,
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    meta.label,
-                    style: GoogleFonts.inter(
-                      fontSize: 13.sp,
-                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                      color: isActive
-                          ? ShellColors.activeBlue
-                          : ShellColors.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-    );
-
-    final inkwell = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          onTap();
-        },
-        borderRadius: BorderRadius.circular(12.r),
-        child: content,
-      ),
-    );
-
-    return collapsed
-        ? Tooltip(message: meta.label, preferBelow: false, child: inkwell)
-        : inkwell;
-  }
-}
-
-class _ShellHeader extends StatelessWidget {
-  final List<NavMeta> allowedTabs;
-  final NavTab activeTab;
-  final bool isPhone;
-  final bool showMenuButton;
-
-  const _ShellHeader({
-    required this.allowedTabs,
-    required this.activeTab,
-    required this.isPhone,
-    required this.showMenuButton,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final activeItemLabel = allowedTabs
-        .firstWhere((e) => e.tab == activeTab, orElse: () => _allNavItems.first)
-        .label;
-
-    final user = RouteGuard.user;
-    final fullName = user?.fullName;
-    final firstName = (fullName == null || fullName.trim().isEmpty)
-        ? 'User'
-        : fullName.trim().split(' ').first;
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isPhone ? 12 : 24,
-        vertical: isPhone ? 12 : 16,
-      ),
-      decoration: const BoxDecoration(
-        color: ShellColors.bg,
-        border: Border(bottom: BorderSide(color: ShellColors.border, width: 1)),
-      ),
-      child: Row(
-        children: [
-          if (showMenuButton) ...[
-            Builder(
-              builder: (ctx) => IconButton(
-                onPressed: () => Scaffold.of(ctx).openDrawer(),
-                icon: const Icon(
-                  Icons.menu_rounded,
-                  color: ShellColors.textPrimary,
-                ),
-              ),
-            ),
-            SizedBox(width: 4.w),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  activeItemLabel,
-                  style: GoogleFonts.inter(
-                    fontSize: isPhone ? 18.sp : 22.sp,
-                    fontWeight: FontWeight.w600,
-                    color: ShellColors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (!isPhone) ...[
-                  SizedBox(height: 2.h),
-                  Text(
-                    'Zaytouna Park Management System',
-                    style: GoogleFonts.inter(
-                      fontSize: 12.sp,
-                      color: ShellColors.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          SizedBox(width: 8.w),
-          const _HeaderAction(icon: Icons.notifications_none_rounded),
-          SizedBox(width: 8.w),
-          _UserProfile(userName: firstName, condensed: isPhone),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeaderAction extends StatelessWidget {
-  final IconData icon;
-  const _HeaderAction({required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(10.r),
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: ShellColors.surface,
-            borderRadius: BorderRadius.circular(10.r),
-            border: Border.all(color: ShellColors.border),
-          ),
-          child: Icon(icon, size: 18.sp, color: ShellColors.textSecondary),
-        ),
-      ),
-    );
-  }
-}
-
-class _UserProfile extends StatelessWidget {
-  final String userName;
-  final bool condensed;
-  const _UserProfile({required this.userName, required this.condensed});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: condensed ? 4 : 6, vertical: 4),
-      decoration: BoxDecoration(
-        color: ShellColors.surface,
-        borderRadius: BorderRadius.circular(30.r),
-        border: Border.all(color: ShellColors.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: ShellColors.activeBlue,
-            child: Text(
-              userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          if (!condensed) ...[
-            SizedBox(width: 8.w),
-            Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: Text(
-                userName,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: ShellColors.textPrimary,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _SidebarLogout extends StatelessWidget {
-  final bool collapsed;
-  final VoidCallback onTap;
-  const _SidebarLogout({required this.collapsed, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: collapsed ? 0 : 14,
-        vertical: 12,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFEE2E2).withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12.r),
-      ),
-      child: collapsed
-          ? Center(
-              child: Icon(
-                Icons.logout_rounded,
-                color: const Color(0xFFEF4444),
-                size: 20.sp,
-              ),
-            )
-          : Row(
-              children: [
-                Icon(
-                  Icons.logout_rounded,
-                  color: const Color(0xFFEF4444),
-                  size: 18.sp,
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    'Sign Out',
-                    style: GoogleFonts.inter(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFEF4444),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-    );
-
-    final inkwell = Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12.r),
-        child: content,
-      ),
-    );
-
-    return collapsed
-        ? Tooltip(message: 'Sign Out', preferBelow: false, child: inkwell)
-        : inkwell;
-  }
-}
-
-class _PremiumBottomNav extends StatelessWidget {
-  final List<NavMeta> allowedTabs;
-  final NavTab activeTab;
-  final ValueChanged<NavTab> onTab;
-  const _PremiumBottomNav({
-    required this.allowedTabs,
-    required this.activeTab,
-    required this.onTab,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const preferredMobileTabs = [
-      NavTab.dashboard,
-      NavTab.pos,
-      NavTab.sales,
-      NavTab.menu,
-      NavTab.orders,
-    ];
-    final mobileItems = allowedTabs
-        .where((i) => preferredMobileTabs.contains(i.tab))
-        .take(5)
-        .toList();
-
-    return SafeArea(
-      top: false,
-      child: Container(
-        height: 64.h,
-        decoration: const BoxDecoration(
-          color: ShellColors.bg,
-          border: Border(top: BorderSide(color: ShellColors.border, width: 1)),
-        ),
+      child: SafeArea(
+        top: false,
         child: Row(
-          children: mobileItems.map((item) {
-            final isActive = activeTab == item.tab;
+          children: tabs.map((t) {
+            final active = t == current;
             return Expanded(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    onTab(item.tab);
-                  },
+              child: InkWell(
+                onTap: () => onSelect(t),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        item.icon,
-                        color: isActive
-                            ? ShellColors.activeBlue
-                            : ShellColors.textSecondary,
-                        size: 22.sp,
+                        _icon(t),
+                        size: 22,
+                        color: active ? _C.primary : _C.muted,
                       ),
-                      SizedBox(height: 4.h),
+                      const SizedBox(height: 3),
                       Text(
-                        item.label,
+                        _label(t),
                         style: GoogleFonts.inter(
-                          fontSize: 10.sp,
-                          fontWeight: isActive
-                              ? FontWeight.w600
-                              : FontWeight.w500,
-                          color: isActive
-                              ? ShellColors.activeBlue
-                              : ShellColors.textSecondary,
+                          fontSize: 10,
+                          fontWeight: active
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                          color: active ? _C.primary : _C.muted,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),

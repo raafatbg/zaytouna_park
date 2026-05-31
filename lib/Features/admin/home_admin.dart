@@ -1,13 +1,64 @@
-// ignore_for_file: deprecated_member_use, use_build_context_synchronously
-
-import 'dart:async';
+// ignore_for_file: deprecated_member_use, use_build_context_synchronously, curly_braces_in_flow_control_structures
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// ─── SHARED TOKENS (same as POS) ──────────────────────────────────────
+class _T {
+  static const primary = Color(0xFF1A6B3C);
+  static const primaryD = Color(0xFF134D2B);
+  static const primaryL = Color(0xFFE8F5EE);
+  static const accent = Color(0xFFD4A017);
+  static const accentL = Color(0xFFFFF8E1);
+  static const bg = Color(0xFFF4F6F4);
+  static const surface = Color(0xFFFFFFFF);
+  static const surfaceAlt = Color(0xFFF0F4F1);
+  static const ink = Color(0xFF0D1F15);
+  static const ink2 = Color(0xFF2E4A38);
+  static const muted = Color(0xFF6B7F72);
+  static const muted2 = Color(0xFFA0B0A7);
+  static const line = Color(0xFFDDE6DF);
+  static const lineSoft = Color(0xFFEDF2EE);
+  static const success = Color(0xFF059669);
+  static const successBg = Color(0xFFD1FAE5);
+  static const danger = Color(0xFFDC2626);
+  static const dangerBg = Color(0xFFFEE2E2);
+  static const warn = Color(0xFFD97706);
+  static const warnBg = Color(0xFFFEF3C7);
+}
+
+TextStyle _h(
+  double s, {
+  FontWeight w = FontWeight.w700,
+  Color? c,
+  double? ls,
+}) => GoogleFonts.inter(
+  fontSize: s,
+  fontWeight: w,
+  color: c ?? _T.ink,
+  letterSpacing: ls,
+);
+
+TextStyle _m(double s, {FontWeight w = FontWeight.w700, Color? c}) =>
+    GoogleFonts.inter(
+      fontSize: s,
+      fontWeight: w,
+      color: c ?? _T.ink,
+      letterSpacing: -0.3,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+TextStyle _eye(double s, {Color? c}) => GoogleFonts.inter(
+  fontSize: s,
+  fontWeight: FontWeight.w800,
+  color: c ?? _T.muted,
+  letterSpacing: 1.1,
+);
+
+// ─── WIDGET ───────────────────────────────────────────────────────────
 class HomeAdmin extends StatefulWidget {
   const HomeAdmin({super.key});
-
   @override
   State<HomeAdmin> createState() => _HomeAdminState();
 }
@@ -15,10 +66,8 @@ class HomeAdmin extends StatefulWidget {
 class _HomeAdminState extends State<HomeAdmin>
     with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
-
   bool _isLoading = true;
 
-  // Dashboard Data
   double _totalSales = 0.0;
   int _totalOrders = 0;
   int _activeOrders = 0;
@@ -27,280 +76,311 @@ class _HomeAdminState extends State<HomeAdmin>
   List<Map<String, dynamic>> _recentOrders = [];
   List<Map<String, dynamic>> _topItems = [];
 
-  // Chart Data
   List<double> _weeklySales = List.filled(7, 0.0);
   List<String> _weekDays = [];
-  double _maxWeeklySale = 0.0;
+  double _maxWeeklySale = 1.0;
 
-  // Animation
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
+  late AnimationController _ac;
+  late Animation<double> _fade;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    _ac = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 700),
     );
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOut,
-    );
-
+    _fade = CurvedAnimation(parent: _ac, curve: Curves.easeOut);
     _fetchDashboardData();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _ac.dispose();
     super.dispose();
   }
 
-  // Helper to get day name
-  String _dayName(int weekday) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return days[weekday - 1];
-  }
+  String _dayName(int weekday) =>
+      const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][weekday - 1];
 
   Future<void> _fetchDashboardData() async {
     setState(() => _isLoading = true);
-
     try {
       final now = DateTime.now();
       final todayStart = DateTime(now.year, now.month, now.day);
       final weekAgo = todayStart.subtract(const Duration(days: 6));
 
-      // 1. Fetch Orders for the last 7 days
       final ordersRes = await _supabase
           .from('orders')
           .select('id, total_amount, order_status, created_at')
           .gte('created_at', weekAgo.toIso8601String())
           .order('created_at', ascending: false);
 
-      // Initialize Weekly Chart
       _weekDays = List.generate(
         7,
         (i) => _dayName(weekAgo.add(Duration(days: i)).weekday),
       );
       _weeklySales = List.filled(7, 0.0);
 
-      double tempTodaySales = 0;
-      int tempTodayOrders = 0;
-      int tempActiveOrders = 0;
+      double todaySales = 0;
+      int todayOrders = 0;
+      int activeOrders = 0;
 
-      for (var order in ordersRes as List) {
+      for (final order in ordersRes as List) {
         final dt = DateTime.parse(order['created_at']).toLocal();
         final amt = (order['total_amount'] as num?)?.toDouble() ?? 0.0;
-        final status = order['order_status'];
-        final isCompleted = status == 'completed' || status == 'ready';
+        final status = order['order_status'] as String? ?? '';
+        final done = status == 'completed' || status == 'ready';
 
-        // Process Today's KPIs
-        if (dt.isAfter(todayStart) || dt.isAtSameMomentAs(todayStart)) {
-          if (isCompleted) {
-            tempTodaySales += amt;
-            tempTodayOrders++;
-          } else if (status == 'active' || status == 'pending') {
-            tempActiveOrders++;
-          }
+        if (!dt.isBefore(todayStart)) {
+          if (done) {
+            todaySales += amt;
+            todayOrders++;
+          } else if (status == 'active' || status == 'pending')
+            activeOrders++;
         }
-
-        // Process Weekly Chart
-        if (isCompleted) {
-          // Calculate difference in days from the start of our 7-day window
-          final diffDays = DateTime(
+        if (done) {
+          final diff = DateTime(
             dt.year,
             dt.month,
             dt.day,
           ).difference(weekAgo).inDays;
-          if (diffDays >= 0 && diffDays < 7) {
-            _weeklySales[diffDays] += amt;
-          }
+          if (diff >= 0 && diff < 7) _weeklySales[diff] += amt;
         }
       }
 
-      // Calculate max sale for chart scaling
       _maxWeeklySale = _weeklySales.reduce(math.max);
-      if (_maxWeeklySale == 0) _maxWeeklySale = 1; // Prevent division by zero
+      if (_maxWeeklySale == 0) _maxWeeklySale = 1;
 
-      // 2. Fetch Low Stock Items (Mocking threshold as < 10 for example, adapt to your needs)
       final inventoryRes = await _supabase
           .from('inventory_items')
           .select('id')
           .lt('current_quantity', 10);
-
-      // 3. Fetch Top Selling Items from order_items
-      // Grabbing a sample of recent order items to aggregate top sellers
       final orderItemsRes = await _supabase
           .from('order_items')
           .select('quantity, menu_items(name, price)')
-          .limit(500); // Analyze the last 500 items sold
+          .limit(500);
 
-      final Map<String, Map<String, dynamic>> itemAgg = {};
-      for (var item in orderItemsRes as List) {
-        final name = item['menu_items']?['name'] ?? 'Unknown';
+      final Map<String, Map<String, dynamic>> agg = {};
+      for (final item in orderItemsRes as List) {
+        final name = item['menu_items']?['name'] as String? ?? 'Unknown';
         final qty = (item['quantity'] as num?)?.toInt() ?? 0;
         final price = (item['menu_items']?['price'] as num?)?.toDouble() ?? 0.0;
-
-        if (!itemAgg.containsKey(name)) {
-          itemAgg[name] = {'name': name, 'sales': 0, 'price': price};
-        }
-        itemAgg[name]!['sales'] += qty;
+        agg.putIfAbsent(name, () => {'name': name, 'sales': 0, 'price': price});
+        agg[name]!['sales'] = (agg[name]!['sales'] as int) + qty;
       }
-
-      final topList = itemAgg.values.toList();
-      topList.sort((a, b) => (b['sales'] as int).compareTo(a['sales'] as int));
+      final topList = agg.values.toList()
+        ..sort((a, b) => (b['sales'] as int).compareTo(a['sales'] as int));
 
       if (mounted) {
         setState(() {
-          _totalSales = tempTodaySales;
-          _totalOrders = tempTodayOrders;
-          _activeOrders = tempActiveOrders;
+          _totalSales = todaySales;
+          _totalOrders = todayOrders;
+          _activeOrders = activeOrders;
           _lowStockCount = (inventoryRes as List).length;
           _recentOrders = List<Map<String, dynamic>>.from(ordersRes.take(6));
           _topItems = topList.take(5).toList();
           _isLoading = false;
         });
-        _animationController.forward(from: 0.0);
+        _ac.forward(from: 0.0);
       }
     } catch (e) {
-      debugPrint('Dashboard Error: $e');
+      debugPrint('Dashboard error: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  // ─── BUILD ──────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: _T.bg,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                color: _T.primary,
+                strokeWidth: 3,
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'Loading dashboard…',
+                style: _h(13, w: FontWeight.w500, c: _T.muted),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF10B981)),
-            )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final isDesktop = constraints.maxWidth > 1000;
-                final isTablet =
-                    constraints.maxWidth > 650 && constraints.maxWidth <= 1000;
-
-                return _buildMainContent(isDesktop, isTablet);
-              },
-            ),
-    );
-  }
-
-  // ─── MAIN DASHBOARD CONTENT ─────────────────────────────────────────────
-
-  Widget _buildMainContent(bool isDesktop, bool isTablet) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: Column(
-        children: [
-          // Top Header Bar
-          Container(
-            height: 80,
-            padding: EdgeInsets.symmetric(horizontal: isDesktop ? 32 : 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-            ),
-            child: Row(
+      backgroundColor: _T.bg,
+      body: FadeTransition(
+        opacity: _fade,
+        child: LayoutBuilder(
+          builder: (context, cs) {
+            final isDesktop = cs.maxWidth > 1000;
+            final isTablet = cs.maxWidth > 650 && cs.maxWidth <= 1000;
+            return Column(
               children: [
+                _buildHeader(isDesktop, isTablet),
                 Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Good Morning, Admin',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF111827),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (isDesktop || isTablet)
-                        Text(
-                          'Here is what\'s happening at Zaytouna Park today.',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 13,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(isDesktop ? 28 : 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _kpiSection(isDesktop, isTablet),
+                        SizedBox(height: isDesktop ? 28 : 16),
+                        if (isDesktop)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  children: [
+                                    _salesChart(),
+                                    const SizedBox(height: 24),
+                                    _recentOrdersTable(),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 24),
+                              Expanded(flex: 1, child: _topSellingItems()),
+                            ],
+                          )
+                        else
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _salesChart(),
+                              const SizedBox(height: 16),
+                              _topSellingItems(),
+                              const SizedBox(height: 16),
+                              _recentOrdersTable(),
+                            ],
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                    ],
-                  ),
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: IconButton(
-                    icon: Icon(Icons.refresh, color: Colors.grey.shade700),
-                    onPressed: _fetchDashboardData,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const CircleAvatar(
-                  backgroundColor: Color(0xFFDCFCE7),
-                  child: Text(
-                    'A',
-                    style: TextStyle(
-                      color: Color(0xFF059669),
-                      fontWeight: FontWeight.bold,
+                        const SizedBox(height: 24),
+                      ],
                     ),
                   ),
                 ),
               ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  // ─── HEADER ─────────────────────────────────────────────────────────
+  Widget _buildHeader(bool isDesktop, bool isTablet) {
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12
+        ? 'Good Morning'
+        : hour < 17
+        ? 'Good Afternoon'
+        : 'Good Evening';
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 28 : 16,
+        vertical: 18,
+      ),
+      decoration: const BoxDecoration(
+        color: _T.surface,
+        border: Border(bottom: BorderSide(color: _T.line)),
+      ),
+      child: Row(
+        children: [
+          // Brand mark
+          Container(
+            height: 42,
+            width: 42,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_T.primary, _T.primaryD],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: _T.primary.withValues(alpha: 0.25),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.dashboard_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
             ),
           ),
-
-          // Scrollable Dashboard Body
+          const SizedBox(width: 14),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(isDesktop ? 32 : 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('$greeting, Admin', style: _h(18, w: FontWeight.w800)),
+                if (isDesktop || isTablet)
+                  Text(
+                    "Here's what's happening at Zaytouna Park today.",
+                    style: _h(12, w: FontWeight.w500, c: _T.muted),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          // Refresh btn
+          _ActionBtn(icon: Icons.refresh_rounded, onTap: _fetchDashboardData),
+          const SizedBox(width: 10),
+          // Date chip
+          if (isDesktop || isTablet) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _T.primaryL,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _T.primary.withValues(alpha: 0.2)),
+              ),
+              child: Row(
                 children: [
-                  // KPI Cards
-                  _buildKpiSection(isDesktop, isTablet),
-
-                  SizedBox(height: isDesktop ? 32 : 16),
-
-                  // Charts & Tables Row/Column
-                  if (isDesktop)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            children: [
-                              _buildSalesChart(),
-                              const SizedBox(height: 32),
-                              _buildRecentOrdersTable(),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 32),
-                        Expanded(flex: 1, child: _buildTopSellingItems()),
-                      ],
-                    )
-                  else
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildSalesChart(),
-                        const SizedBox(height: 16),
-                        _buildTopSellingItems(),
-                        const SizedBox(height: 16),
-                        _buildRecentOrdersTable(),
-                      ],
-                    ),
+                  const Icon(
+                    Icons.calendar_today_rounded,
+                    size: 13,
+                    color: _T.primary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _formatDate(DateTime.now()),
+                    style: _h(11.5, w: FontWeight.w700, c: _T.primary),
+                  ),
                 ],
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+          // Avatar
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _T.primary.withValues(alpha: 0.3),
+                width: 2,
+              ),
+            ),
+            child: CircleAvatar(
+              radius: 16,
+              backgroundColor: _T.primaryL,
+              child: Text(
+                'A',
+                style: _h(13, w: FontWeight.w800, c: _T.primary),
               ),
             ),
           ),
@@ -309,44 +389,68 @@ class _HomeAdminState extends State<HomeAdmin>
     );
   }
 
-  // ─── WIDGET BUILDERS ──────────────────────────────────────────────────
+  String _formatDate(DateTime d) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
+  }
 
-  Widget _buildKpiSection(bool isDesktop, bool isTablet) {
+  // ─── KPI SECTION ────────────────────────────────────────────────────
+  Widget _kpiSection(bool isDesktop, bool isTablet) {
     final kpis = [
-      _buildKpiCard(
-        'Today\'s Sales',
+      _KpiData(
+        "Today's Sales",
         '\$${_totalSales.toStringAsFixed(2)}',
-        Icons.attach_money,
-        const Color(0xFF10B981),
+        Icons.attach_money_rounded,
+        _T.primary,
+        _T.primaryL,
       ),
-      _buildKpiCard(
-        'Total Orders',
+      _KpiData(
+        'Completed Orders',
         '$_totalOrders',
-        Icons.shopping_bag_outlined,
-        const Color(0xFF3B82F6),
+        Icons.receipt_long_rounded,
+        _T.success,
+        _T.successBg,
       ),
-      _buildKpiCard(
+      _KpiData(
         'Active Kitchen',
         '$_activeOrders',
-        Icons.restaurant,
-        const Color(0xFFF59E0B),
+        Icons.restaurant_rounded,
+        _T.warn,
+        _T.warnBg,
       ),
-      _buildKpiCard(
-        'Low Stock',
+      _KpiData(
+        'Low Stock Items',
         '$_lowStockCount',
         Icons.warning_amber_rounded,
-        const Color(0xFFEF4444),
+        _T.danger,
+        _T.dangerBg,
       ),
     ];
-
     if (isDesktop) {
       return Row(
         children: kpis
+            .asMap()
+            .entries
             .map(
-              (widget) => Expanded(
+              (e) => Expanded(
                 child: Padding(
-                  padding: EdgeInsets.only(right: widget == kpis.last ? 0 : 16),
-                  child: widget,
+                  padding: EdgeInsets.only(
+                    right: e.key < kpis.length - 1 ? 16 : 0,
+                  ),
+                  child: _KpiCard(data: e.value),
                 ),
               ),
             )
@@ -357,17 +461,17 @@ class _HomeAdminState extends State<HomeAdmin>
         children: [
           Row(
             children: [
-              Expanded(child: kpis[0]),
-              const SizedBox(width: 16),
-              Expanded(child: kpis[1]),
+              Expanded(child: _KpiCard(data: kpis[0])),
+              const SizedBox(width: 14),
+              Expanded(child: _KpiCard(data: kpis[1])),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(child: kpis[2]),
-              const SizedBox(width: 16),
-              Expanded(child: kpis[3]),
+              Expanded(child: _KpiCard(data: kpis[2])),
+              const SizedBox(width: 14),
+              Expanded(child: _KpiCard(data: kpis[3])),
             ],
           ),
         ],
@@ -376,9 +480,9 @@ class _HomeAdminState extends State<HomeAdmin>
       return Column(
         children: kpis
             .map(
-              (widget) => Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: widget,
+              (k) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _KpiCard(data: k),
               ),
             )
             .toList(),
@@ -386,131 +490,112 @@ class _HomeAdminState extends State<HomeAdmin>
     }
   }
 
-  Widget _buildKpiCard(String title, String value, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+  // ─── SALES CHART ────────────────────────────────────────────────────
+  Widget _salesChart() {
+    final maxVal = _maxWeeklySale;
+    return _Card(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Weekly Revenue', style: _h(16, w: FontWeight.w800)),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Last 7 days',
+                    style: _h(11, w: FontWeight.w500, c: _T.muted),
+                  ),
+                ],
               ),
               Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
                 ),
-                child: Icon(icon, color: color, size: 20),
+                decoration: BoxDecoration(
+                  color: _T.primaryL,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '\$${_weeklySales.fold(0.0, (a, b) => a + b).toStringAsFixed(0)} total',
+                  style: _h(11, w: FontWeight.w700, c: _T.primary),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Color(0xFF111827),
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Dynamic Bar Chart
-  Widget _buildSalesChart() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Last 7 Days Revenue',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
-            ),
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
           SizedBox(
-            height: 200,
+            height: 180,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(7, (index) {
-                // Calculate height percentage based on max value
-                final heightFactor = _weeklySales[index] / _maxWeeklySale;
-
+              children: List.generate(7, (i) {
+                final ratio = _weeklySales[i] / maxVal;
+                final isToday = i == 6;
+                final barColor = isToday ? _T.primary : _T.primaryL;
+                final textColor = isToday ? _T.primary : _T.muted;
                 return Tooltip(
-                  message: '\$${_weeklySales[index].toStringAsFixed(2)}',
+                  message: '\$${_weeklySales[i].toStringAsFixed(2)}',
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
+                      // Value label
+                      if (_weeklySales[i] > 0)
+                        Text(
+                          '\$${_weeklySales[i].toStringAsFixed(0)}',
+                          style: _h(9, w: FontWeight.w700, c: _T.primary),
+                        ),
+                      const SizedBox(height: 4),
                       AnimatedContainer(
-                        duration: const Duration(milliseconds: 1000),
+                        duration: const Duration(milliseconds: 900),
                         curve: Curves.easeOutQuart,
                         width: MediaQuery.of(context).size.width > 600
-                            ? 40
-                            : 25,
-                        // Give it a minimum height of 4px just so zero-sales days are slightly visible
-                        height: math.max(4.0, 150 * heightFactor),
+                            ? 38
+                            : 22,
+                        height: math.max(6.0, 140 * ratio),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [
-                              const Color(0xFF10B981),
-                              const Color(0xFF34D399).withOpacity(0.8),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(6),
+                          color: barColor,
+                          borderRadius: BorderRadius.circular(8),
+                          border: isToday
+                              ? Border.all(
+                                  color: _T.primary.withValues(alpha: 0.5),
+                                  width: 1.5,
+                                )
+                              : Border.all(color: _T.line),
+                          boxShadow: isToday
+                              ? [
+                                  BoxShadow(
+                                    color: _T.primary.withValues(alpha: 0.25),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ]
+                              : [],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Text(
-                        _weekDays[index],
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
+                        _weekDays[i],
+                        style: _h(
+                          11,
+                          w: isToday ? FontWeight.w800 : FontWeight.w600,
+                          c: textColor,
                         ),
                       ),
+                      if (isToday)
+                        Container(
+                          margin: const EdgeInsets.only(top: 3),
+                          width: 4,
+                          height: 4,
+                          decoration: const BoxDecoration(
+                            color: _T.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                     ],
                   ),
                 );
@@ -522,129 +607,127 @@ class _HomeAdminState extends State<HomeAdmin>
     );
   }
 
-  Widget _buildRecentOrdersTable() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+  // ─── RECENT ORDERS ──────────────────────────────────────────────────
+  Widget _recentOrdersTable() {
+    return _Card(
+      padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Recent Orders',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF111827),
-                  ),
-                ),
+                Text('Recent Orders', style: _h(16, w: FontWeight.w800)),
                 TextButton(
                   onPressed: () {},
-                  child: const Text(
-                    'View All',
-                    style: TextStyle(
-                      color: Color(0xFF059669),
-                      fontWeight: FontWeight.bold,
+                  style: TextButton.styleFrom(
+                    foregroundColor: _T.primary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
                     ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: _T.primaryL),
+                    ),
+                  ),
+                  child: Text(
+                    'View All',
+                    style: _h(12, w: FontWeight.w700, c: _T.primary),
                   ),
                 ),
               ],
             ),
           ),
-          Divider(height: 1, color: Colors.grey.shade200),
+          const Divider(height: 1, color: _T.lineSoft),
           if (_recentOrders.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: Center(child: Text('No recent orders.')),
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Center(
+                child: Text('No recent orders.', style: _h(13, c: _T.muted)),
+              ),
             )
           else
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _recentOrders.length,
-              separatorBuilder: (context, index) =>
-                  Divider(height: 1, color: Colors.grey.shade100),
-              itemBuilder: (context, index) {
-                final order = _recentOrders[index];
-                final isCompleted =
-                    order['order_status'] == 'completed' ||
-                    order['order_status'] == 'ready';
+              separatorBuilder: (_, _) =>
+                  const Divider(height: 1, color: _T.lineSoft),
+              itemBuilder: (_, i) {
+                final order = _recentOrders[i];
+                final status = order['order_status'] as String? ?? '';
+                final done = status == 'completed' || status == 'ready';
                 final time = DateTime.parse(order['created_at']).toLocal();
+                final amount =
+                    (order['total_amount'] as num?)?.toDouble() ?? 0.0;
+
+                Color statusColor = done
+                    ? _T.success
+                    : status == 'active'
+                    ? _T.warn
+                    : _T.muted;
+                Color statusBg = done
+                    ? _T.successBg
+                    : status == 'active'
+                    ? _T.warnBg
+                    : _T.lineSoft;
 
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 8,
+                    horizontal: 20,
+                    vertical: 6,
                   ),
-                  leading: CircleAvatar(
-                    backgroundColor: isCompleted
-                        ? const Color(0xFFDCFCE7)
-                        : const Color(0xFFFEF3C7),
+                  leading: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: statusBg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     child: Icon(
-                      isCompleted
-                          ? Icons.check_circle_outline
-                          : Icons.pending_actions,
-                      color: isCompleted
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFD97706),
+                      done
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.pending_actions_rounded,
+                      color: statusColor,
+                      size: 20,
                     ),
                   ),
                   title: Text(
                     'Order #${order['id']}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF111827),
-                    ),
+                    style: _h(13, w: FontWeight.w700),
                   ),
                   subtitle: Text(
                     '${time.hour}:${time.minute.toString().padLeft(2, '0')}',
-                    style: TextStyle(color: Colors.grey.shade500),
+                    style: _h(11, w: FontWeight.w500, c: _T.muted),
                   ),
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '\$${(order['total_amount'] as num).toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                        '\$${amount.toStringAsFixed(2)}',
+                        style: _m(15, w: FontWeight.w800, c: _T.ink),
                       ),
+                      const SizedBox(height: 4),
                       Container(
-                        margin: const EdgeInsets.only(top: 4),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
+                          horizontal: 7,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: isCompleted
-                              ? const Color(0xFFDCFCE7)
-                              : const Color(0xFFFEF3C7),
-                          borderRadius: BorderRadius.circular(4),
+                          color: statusBg,
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          (order['order_status'] as String).toUpperCase(),
-                          style: TextStyle(
-                            color: isCompleted
-                                ? const Color(0xFF059669)
-                                : const Color(0xFFD97706),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w900,
+                          status.toUpperCase(),
+                          style: _h(
+                            9,
+                            w: FontWeight.w800,
+                            c: statusColor,
+                            ls: 0.5,
                           ),
                         ),
                       ),
@@ -658,86 +741,104 @@ class _HomeAdminState extends State<HomeAdmin>
     );
   }
 
-  Widget _buildTopSellingItems() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+  // ─── TOP SELLING ────────────────────────────────────────────────────
+  Widget _topSellingItems() {
+    return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Top Selling Items',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF111827),
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _T.accentL,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.emoji_events_rounded,
+                  color: _T.accent,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text('Top Selling Items', style: _h(16, w: FontWeight.w800)),
+            ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           if (_topItems.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: Text('Not enough data.')),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: Text('Not enough data.', style: _h(13, c: _T.muted)),
+              ),
             )
           else
-            ..._topItems.map((item) {
+            ...List.generate(_topItems.length, (i) {
+              final item = _topItems[i];
+              final rank = i + 1;
+              final Color rankColor = rank == 1
+                  ? _T.accent
+                  : rank == 2
+                  ? _T.muted
+                  : rank == 3
+                  ? const Color(0xFFCD7F32)
+                  : _T.muted2;
               return Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
+                padding: const EdgeInsets.only(bottom: 14),
                 child: Row(
                   children: [
+                    // Rank badge
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: 28,
+                      height: 28,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: rankColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(
-                        Icons.fastfood_rounded,
-                        color: Colors.grey.shade400,
+                      child: Center(
+                        child: Text(
+                          '#$rank',
+                          style: _h(11, w: FontWeight.w800, c: rankColor),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 10),
+                    // Icon
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: _T.surfaceAlt,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.fastfood_rounded,
+                        color: _T.muted2,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             item['name'] as String,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF111827),
-                            ),
+                            style: _h(13, w: FontWeight.w700),
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Text(
-                            '${item['sales']} Sales',
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 12,
-                            ),
+                            '${item['sales']} sold',
+                            style: _h(11, w: FontWeight.w500, c: _T.muted),
                           ),
                         ],
                       ),
                     ),
                     Text(
                       '\$${(item['price'] as double).toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF10B981),
-                      ),
+                      style: _m(14, w: FontWeight.w800, c: _T.primary),
                     ),
                   ],
                 ),
@@ -747,4 +848,119 @@ class _HomeAdminState extends State<HomeAdmin>
       ),
     );
   }
+}
+
+// ─── SHARED COMPONENTS ────────────────────────────────────────────────
+class _KpiData {
+  final String label, value;
+  final IconData icon;
+  final Color color, bg;
+  const _KpiData(this.label, this.value, this.icon, this.color, this.bg);
+}
+
+class _KpiCard extends StatelessWidget {
+  final _KpiData data;
+  const _KpiCard({required this.data});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: _T.surface,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: _T.line),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.03),
+          blurRadius: 8,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                data.label,
+                style: _eye(10, c: _T.muted),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: data.bg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(data.icon, color: data.color, size: 18),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          data.value,
+          style: _m(26, w: FontWeight.w900),
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 6),
+        Container(
+          height: 3,
+          width: 32,
+          decoration: BoxDecoration(
+            color: data.color.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _Card extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  const _Card({required this.child, this.padding});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: padding ?? const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: _T.surface,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: _T.line),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.03),
+          blurRadius: 8,
+          offset: const Offset(0, 3),
+        ),
+      ],
+    ),
+    child: child,
+  );
+}
+
+class _ActionBtn extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  const _ActionBtn({required this.icon, required this.onTap});
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.all(9),
+        decoration: BoxDecoration(
+          color: _T.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _T.line),
+        ),
+        child: Icon(icon, size: 19, color: _T.ink2),
+      ),
+    ),
+  );
 }

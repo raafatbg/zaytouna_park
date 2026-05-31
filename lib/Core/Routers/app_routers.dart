@@ -14,10 +14,9 @@ import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart'
 import 'package:zaytouna_park/Features/admin/Widgets/Facilities/facilities.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
+import 'package:zaytouna_park/Features/cashier/Shell/appshell.dart';
 
 // Cashier
-import 'package:zaytouna_park/Features/cashier/cash_home.dart';
-import 'package:zaytouna_park/Features/cashier/Shell/appshell.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
@@ -70,11 +69,7 @@ class AppRouter {
         path: Routes.adminDashboard,
         pageBuilder: (c, s) => _fade(state: s, child: AdminShellScreen()),
       ),
-      GoRoute(
-        path: Routes.cashierDashboard,
-        pageBuilder: (c, s) =>
-            _fade(state: s, child: const CashierShellScreen()),
-      ),
+
       GoRoute(
         path: Routes.shell,
         pageBuilder: (c, s) =>
@@ -83,17 +78,6 @@ class AppRouter {
       GoRoute(
         path: Routes.kitchenDashboard,
         pageBuilder: (c, s) => _fade(state: s, child: const KitchenScreen()),
-      ),
-      GoRoute(
-        path: Routes.home,
-        pageBuilder: (c, s) => _fade(
-          state: s,
-          child: Builder(
-            builder: (ctx) => PremiumCashierHome(
-              onLaunchTerminal: () => ctx.push(Routes.pos),
-            ),
-          ),
-        ),
       ),
 
       // ─── POS ─────────────────────────────────────────────────────────────

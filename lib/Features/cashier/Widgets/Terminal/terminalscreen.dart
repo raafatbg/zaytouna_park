@@ -11,18 +11,30 @@ import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────
 class T {
-  static const primary = Color(0xFFB8860B);
-  static const primaryD = Color(0xFF8B6914);
-  static const primaryL = Color(0xFFFFF7DB);
-  static const bg = Color(0xFFFAFAF7);
+  // Brand
+  static const primary = Color(0xFF1A6B3C); // deep forest green
+  static const primaryD = Color(0xFF134D2B);
+  static const primaryL = Color(0xFFE8F5EE);
+  static const accent = Color(0xFFD4A017); // warm gold accent
+  static const accentL = Color(0xFFFFF8E1);
+
+  // Surfaces
+  static const bg = Color(0xFFF4F6F4);
   static const surface = Color(0xFFFFFFFF);
-  static const surfaceAlt = Color(0xFFF5F5F0);
-  static const ink = Color(0xFF0A0F0D);
-  static const ink2 = Color(0xFF2D3438);
-  static const muted = Color(0xFF64748B);
-  static const muted2 = Color(0xFF94A3B8);
-  static const line = Color(0xFFE5E7EB);
-  static const lineSoft = Color(0xFFF1F2F4);
+  static const surfaceAlt = Color(0xFFF0F4F1);
+  static const card = Color(0xFFFFFFFF);
+
+  // Ink
+  static const ink = Color(0xFF0D1F15);
+  static const ink2 = Color(0xFF2E4A38);
+  static const muted = Color(0xFF6B7F72);
+  static const muted2 = Color(0xFFA0B0A7);
+
+  // Borders
+  static const line = Color(0xFFDDE6DF);
+  static const lineSoft = Color(0xFFEDF2EE);
+
+  // Semantic
   static const success = Color(0xFF059669);
   static const successBg = Color(0xFFD1FAE5);
   static const danger = Color(0xFFDC2626);
@@ -50,7 +62,7 @@ TextStyle _mono(double s, {FontWeight w = FontWeight.w700, Color? c}) =>
       fontSize: s,
       fontWeight: w,
       color: c ?? T.ink,
-      letterSpacing: -0.2,
+      letterSpacing: -0.3,
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
@@ -58,7 +70,7 @@ TextStyle _eyebrow(double s, {Color? c}) => GoogleFonts.inter(
   fontSize: s,
   fontWeight: FontWeight.w800,
   color: c ?? T.muted,
-  letterSpacing: 1.4,
+  letterSpacing: 1.2,
 );
 
 int roundToNearest5000(num amount) => (amount / 5000).round() * 5000;
@@ -143,6 +155,8 @@ class _UpgradedPOSState extends State<UpgradedPOS>
   List<PosTable> _tables = [];
 
   final List<CartItem> _cart = [];
+  List<CartItem> _originalCart = [];
+
   PosCategory? _selectedCategory;
   PosCustomer? _selectedCustomer;
   PosOrderType? _selectedOrderType;
@@ -167,6 +181,22 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     return t < 0 ? 0 : t;
   }
 
+  List<CartItem> get _addedItems {
+    final added = <CartItem>[];
+    for (final c in _cart) {
+      final orig = _originalCart
+          .where(
+            (o) =>
+                o.product.id == c.product.id &&
+                o.product.isInventoryItem == c.product.isInventoryItem,
+          )
+          .firstOrNull;
+      final delta = c.quantity - (orig?.quantity ?? 0);
+      if (delta > 0) added.add(CartItem(product: c.product, quantity: delta));
+    }
+    return added;
+  }
+
   bool get _isDineIn {
     final n =
         _selectedOrderType?.name.toLowerCase().replaceAll(
@@ -177,12 +207,16 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     return n.contains('dinein');
   }
 
-  List<PosCategory> get _currentCategories {
-    if (_currentView == PosView.menu) {
-      return _allCategories.where((c) => !c.isInventoryCategory).toList();
-    }
-    return _allCategories.where((c) => c.isInventoryCategory).toList();
+  // Receipt location label — table name for dine-in, order type otherwise
+  String get _locationLabel {
+    if (_isDineIn && _selectedTable != null)
+      return 'Table ${_selectedTable!.name}';
+    return _selectedOrderType?.name ?? 'Takeaway';
   }
+
+  List<PosCategory> get _currentCategories => _currentView == PosView.menu
+      ? _allCategories.where((c) => !c.isInventoryCategory).toList()
+      : _allCategories.where((c) => c.isInventoryCategory).toList();
 
   List<PosProduct> get _currentDisplayItems {
     var list = _allProducts
@@ -210,9 +244,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     if (_extraConsumed) return;
     try {
       final extra = GoRouterState.of(context).extra;
-      if (extra is Map) {
-        _pendingExtra = Map<String, dynamic>.from(extra);
-      }
+      if (extra is Map) _pendingExtra = Map<String, dynamic>.from(extra);
     } catch (_) {}
     _extraConsumed = true;
     if (!_isLoading) _applyPreselection();
@@ -236,9 +268,8 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     } else if (raw is Map) {
       final id = raw['id'];
       table = _tables.where((t) => t.id == id).firstOrNull;
-      if (table == null && id is int && raw['name'] != null) {
+      if (table == null && id is int && raw['name'] != null)
         table = PosTable(id: id, name: raw['name'].toString());
-      }
     }
     if (table == null) return;
 
@@ -287,12 +318,11 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       final cats = <PosCategory>[];
       final prods = <PosProduct>[];
 
-      for (final c in r[0] as List) {
+      for (final c in r[0] as List)
         cats.add(
           PosCategory(id: c['id'], name: c['name'], isInventoryCategory: false),
         );
-      }
-      for (final i in r[2] as List) {
+      for (final i in r[2] as List)
         prods.add(
           PosProduct(
             id: i['id'],
@@ -304,13 +334,11 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             imageUrl: i['image_url'],
           ),
         );
-      }
-      for (final c in r[1] as List) {
+      for (final c in r[1] as List)
         cats.add(
           PosCategory(id: c['id'], name: c['name'], isInventoryCategory: true),
         );
-      }
-      for (final i in r[3] as List) {
+      for (final i in r[3] as List)
         prods.add(
           PosProduct(
             id: i['id'],
@@ -321,7 +349,6 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             isInventoryItem: true,
           ),
         );
-      }
 
       _allCategories = cats;
       _allProducts = prods;
@@ -346,7 +373,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       if (mounted) setState(() => _isLoading = false);
       _applyPreselection();
     } catch (e) {
-      debugPrint('Error fetching POS data: $e');
+      debugPrint('POS data error: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         _toast('Failed to load POS data: $e', T.danger);
@@ -365,44 +392,42 @@ class _UpgradedPOSState extends State<UpgradedPOS>
         .select()
         .eq('order_id', widget.editOrderId!);
 
-    if (order['customer_id'] != null) {
+    if (order['customer_id'] != null)
       _selectedCustomer = _customers
           .where((c) => c.id == order['customer_id'])
           .firstOrNull;
-    }
-    if (order['order_type_id'] != null) {
+    if (order['order_type_id'] != null)
       _selectedOrderType = _orderTypes
           .where((t) => t.id == order['order_type_id'])
           .firstOrNull;
-    }
-    if (order['table_id'] != null) {
+    if (order['table_id'] != null)
       _selectedTable = _tables
           .where((t) => t.id == order['table_id'])
           .firstOrNull;
-    }
 
     _exchangeRate = (order['exchange_rate'] as num?)?.toDouble() ?? 90000.0;
     _discountAmount = (order['discount_amount'] as num?)?.toDouble() ?? 0.0;
     final st = (order['subtotal'] as num?)?.toDouble() ?? 0.0;
     final ta = (order['tax_amount'] as num?)?.toDouble() ?? 0.0;
-    if ((st - _discountAmount) > 0) {
+    if ((st - _discountAmount) > 0)
       _taxPercent = (ta / (st - _discountAmount)) * 100;
-    }
 
     _cart.clear();
     for (final i in items as List) {
       PosProduct? p;
-      if (i['menu_item_id'] != null) {
+      if (i['menu_item_id'] != null)
         p = _allProducts
             .where((x) => x.id == i['menu_item_id'] && !x.isInventoryItem)
             .firstOrNull;
-      } else if (i['inventory_item_id'] != null) {
+      else if (i['inventory_item_id'] != null)
         p = _allProducts
             .where((x) => x.id == i['inventory_item_id'] && x.isInventoryItem)
             .firstOrNull;
-      }
       if (p != null) _cart.add(CartItem(product: p, quantity: i['quantity']));
     }
+    _originalCart = _cart
+        .map((c) => CartItem(product: c.product, quantity: c.quantity))
+        .toList();
   }
 
   // ─── CART ───────────────────────────────────────────────────────────
@@ -415,11 +440,10 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             c.product.id == item.id &&
             c.product.isInventoryItem == item.isInventoryItem,
       );
-      if (i >= 0) {
+      if (i >= 0)
         _cart[i].quantity++;
-      } else {
+      else
         _cart.add(CartItem(product: item));
-      }
     });
   }
 
@@ -460,19 +484,17 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       _toast('Please select a Table for Dine in orders', T.warn);
       return;
     }
-    if (!_isDineIn && _selectedTable != null) {
-      _selectedTable = null;
-    }
+    if (!_isDineIn && _selectedTable != null) _selectedTable = null;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => Center(
         child: Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
             color: T.surface,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: const CircularProgressIndicator(
             color: T.primary,
@@ -528,7 +550,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             .eq('order_id', widget.editOrderId!);
       }
 
-      // 3. Create / update order — uses order_status (PGRST204 fix)
+      // 3. Create / update order
       final orderData = <String, dynamic>{
         'customer_id': _selectedCustomer?.id,
         'order_type_id': _selectedOrderType?.id,
@@ -584,17 +606,15 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           'decrement_inventory',
           params: {'p_item_id': c.product.id, 'p_quantity': c.quantity},
         );
-        if (ok != true) {
+        if (ok != true)
           throw 'Stock for "${c.product.name}" changed during checkout. Please retry.';
-        }
       }
 
-      // 6. Print
+      // 6. Print — uses table name for dine-in
       if (shouldPrint) {
         final printModel = OrderModel(
           id: orderId,
-          tableNumber:
-              _selectedTable?.name ?? _selectedOrderType?.name ?? 'Takeaway',
+          tableNumber: _locationLabel, // ← table name if dine-in
           customerName: _selectedCustomer?.name ?? 'Walk-in Guest',
           items: _cart
               .map(
@@ -624,9 +644,9 @@ class _UpgradedPOSState extends State<UpgradedPOS>
 
       if (mounted) {
         Navigator.pop(context);
-        if (isEdit) {
+        if (isEdit)
           Navigator.pop(context, true);
-        } else {
+        else {
           _clearCart();
           _toast('Order #$orderId saved', T.success);
         }
@@ -639,14 +659,45 @@ class _UpgradedPOSState extends State<UpgradedPOS>
               .delete()
               .eq('order_id', createdOrderId);
           await _supabase.from('orders').delete().eq('id', createdOrderId);
-        } catch (_) {
-          /* best effort */
-        }
+        } catch (_) {}
       }
       if (mounted) {
         Navigator.pop(context);
         _toast('Checkout failed: $e', T.danger);
       }
+    }
+  }
+
+  // ─── PRINT NEW ITEMS ONLY ──────────────────────────────────────────
+  Future<void> _printNewItemsOnly(List<CartItem> newItems) async {
+    if (newItems.isEmpty) return;
+    try {
+      final printModel = OrderModel(
+        id: widget.editOrderId!,
+        tableNumber: _locationLabel, // ← table name if dine-in
+        customerName: _selectedCustomer?.name ?? 'Walk-in Guest',
+        items: newItems
+            .map(
+              (c) => OrderItem(
+                id: 0,
+                name: c.product.name,
+                quantity: c.quantity,
+                price: c.product.price,
+                total: c.total,
+              ),
+            )
+            .toList(),
+        status: OrderStatus.active,
+        timestamp: DateTime.now(),
+        subtotal: newItems.fold(0, (s, c) => s + c.total),
+        discountAmount: 0,
+        taxAmount: 0,
+        totalAmount: newItems.fold(0, (s, c) => s + c.total),
+        paymentStatus: 'unpaid',
+      );
+      await ReceiptPrinter.printReceipt(printModel);
+    } catch (e) {
+      if (mounted) _toast('Print failed: $e', T.danger);
     }
   }
 
@@ -676,7 +727,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
         ),
         backgroundColor: c,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 3),
       ),
     );
@@ -686,10 +737,17 @@ class _UpgradedPOSState extends State<UpgradedPOS>
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: T.bg,
         body: Center(
-          child: CircularProgressIndicator(color: T.primary, strokeWidth: 3),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: T.primary, strokeWidth: 3),
+              const SizedBox(height: 16),
+              Text('Loading POS…', style: _ui(14, c: T.muted)),
+            ],
+          ),
         ),
       );
     }
@@ -717,9 +775,15 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     appBar: PreferredSize(
       preferredSize: const Size.fromHeight(108),
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: T.surface,
-          border: Border(bottom: BorderSide(color: T.line)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: SafeArea(
           bottom: false,
@@ -810,7 +874,10 @@ class _UpgradedPOSState extends State<UpgradedPOS>
   Widget _editBanner() => Container(
     width: double.infinity,
     padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-    color: T.warnBg,
+    decoration: const BoxDecoration(
+      color: T.warnBg,
+      border: Border(bottom: BorderSide(color: Color(0xFFFFE4A0))),
+    ),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -826,6 +893,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
 
   Widget _menuPanel({bool showHeader = true}) {
     if (_isCheckoutMode) {
+      final added = _addedItems;
       return _EmbeddedCheckoutPanel(
         totalUSD: _finalTotalUSD,
         exchangeRate: _exchangeRate,
@@ -833,6 +901,8 @@ class _UpgradedPOSState extends State<UpgradedPOS>
         onBack: () => setState(() => _isCheckoutMode = false),
         onConfirm: (m, p, paid) =>
             _processCheckout(m, shouldPrint: p, isPaid: paid),
+        addedItems: added,
+        onPrintNew: added.isEmpty ? null : () => _printNewItemsOnly(added),
       );
     }
     return Container(
@@ -842,7 +912,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
         children: [
           if (showHeader) _menuHeader(),
           _viewToggle(),
-          _categoryTabs(),
+          _categoryTabs(), // ← scrollable
           Expanded(child: _itemsGrid()),
         ],
       ),
@@ -851,7 +921,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
 
   // ─── ORDER SETTINGS ─────────────────────────────────────────────────
   Widget _orderSettingsBar() => Container(
-    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+    padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
     decoration: const BoxDecoration(
       color: T.surface,
       border: Border(bottom: BorderSide(color: T.lineSoft)),
@@ -859,8 +929,10 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('ORDER SETTINGS', style: _eyebrow(10)),
-        const SizedBox(height: 10),
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text('ORDER SETTINGS', style: _eyebrow(9.5)),
+        ),
         Row(
           children: [
             Expanded(
@@ -876,7 +948,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(
               child: _Selector(
                 label: 'Type',
@@ -893,14 +965,14 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(
               child: Opacity(
                 opacity: _isDineIn ? 1.0 : 0.45,
                 child: _Selector(
                   label: 'Table',
                   value: _isDineIn
-                      ? (_selectedTable?.name ?? 'Table')
+                      ? (_selectedTable?.name ?? 'Select')
                       : 'Dine in only',
                   icon: Icons.table_restaurant_outlined,
                   color: T.success,
@@ -924,13 +996,13 @@ class _UpgradedPOSState extends State<UpgradedPOS>
   );
 
   Widget _cartHeader() => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+    padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Row(
           children: [
-            Text('Current Order', style: _ui(16, w: FontWeight.w800)),
+            Text('Current Order', style: _ui(15, w: FontWeight.w800)),
             if (_cart.isNotEmpty) ...[
               const SizedBox(width: 8),
               Container(
@@ -941,7 +1013,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                 ),
                 child: Text(
                   '${_cart.length} ${_cart.length == 1 ? "item" : "items"}',
-                  style: _ui(10, w: FontWeight.w800, c: T.primaryD),
+                  style: _ui(10, w: FontWeight.w800, c: T.primary),
                 ),
               ),
             ],
@@ -976,20 +1048,37 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       itemCount: _cart.length,
       separatorBuilder: (_, _) => const SizedBox(height: 6),
       itemBuilder: (_, i) {
         final item = _cart[i];
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: T.surface,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: T.lineSoft),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             children: [
+              // Color dot for item type
+              Container(
+                width: 4,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: item.product.isInventoryItem ? T.warn : T.primary,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 flex: 3,
                 child: Column(
@@ -1034,7 +1123,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
 
   // ─── BILLING ────────────────────────────────────────────────────────
   Widget _billingSummary() => Container(
-    padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+    padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
     decoration: const BoxDecoration(
       color: T.surface,
       border: Border(top: BorderSide(color: T.lineSoft)),
@@ -1072,8 +1161,8 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             );
           },
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Divider(height: 1, color: T.lineSoft),
         ),
         _row(
@@ -1081,11 +1170,12 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           '\$${_finalTotalUSD.toStringAsFixed(2)}',
           isTotal: true,
         ),
+        const SizedBox(height: 2),
         _row(
           'Total (LBP)',
           '${roundToNearest5000(_finalTotalUSD * _exchangeRate)} LBP',
           isTotal: true,
-          color: T.primary,
+          color: T.accent,
         ),
       ],
     ),
@@ -1093,7 +1183,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
 
   Widget _row(String label, String val, {bool isTotal = false, Color? color}) =>
       Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(vertical: 2.5),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1166,7 +1256,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: T.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text(title, style: _ui(17, w: FontWeight.w800)),
         content: TextField(
           controller: ctrl,
@@ -1180,7 +1270,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
             filled: true,
             fillColor: T.bg,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
           ),
@@ -1220,11 +1310,11 @@ class _UpgradedPOSState extends State<UpgradedPOS>
         ? 'BACK TO MENU'
         : (isEdit ? 'UPDATE ORDER' : 'PROCEED TO CHECKOUT');
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
       color: T.surface,
       child: SizedBox(
         width: double.infinity,
-        height: 54,
+        height: 52,
         child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: _cart.isEmpty
@@ -1237,15 +1327,15 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                               : [T.primary, T.primaryD]),
                   ),
             color: _cart.isEmpty ? T.lineSoft : null,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: _cart.isEmpty
                 ? []
                 : [
                     BoxShadow(
                       color: (_isCheckoutMode ? T.ink2 : T.primary).withValues(
-                        alpha: 0.25,
+                        alpha: 0.3,
                       ),
-                      blurRadius: 14,
+                      blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
                   ],
@@ -1259,7 +1349,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                       HapticFeedback.mediumImpact();
                       setState(() => _isCheckoutMode = !_isCheckoutMode);
                     },
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: Center(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -1278,7 +1368,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                         14,
                         w: FontWeight.w800,
                         c: _cart.isEmpty ? T.muted : Colors.white,
-                        ls: 1.2,
+                        ls: 1.0,
                       ),
                     ),
                   ],
@@ -1313,7 +1403,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           return AlertDialog(
             backgroundColor: T.surface,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
             ),
             title: Text(title, style: _ui(17, w: FontWeight.w800)),
             content: SizedBox(
@@ -1325,7 +1415,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                     autofocus: true,
                     onChanged: (v) => setS(() => query = v),
                     decoration: InputDecoration(
-                      hintText: 'Search...',
+                      hintText: 'Search…',
                       prefixIcon: const Icon(
                         Icons.search_rounded,
                         color: T.muted2,
@@ -1341,7 +1431,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
-                    height: 320,
+                    height: 300,
                     child: filtered.isEmpty
                         ? Center(
                             child: Text(
@@ -1398,17 +1488,17 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     );
   }
 
-  Widget _menuHeader() => Padding(
-    padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+  Widget _menuHeader() => Container(
+    padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
     child: Row(
       children: [
-        const _BrandMark(size: 38),
+        const _BrandMark(size: 40),
         const SizedBox(width: 12),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('POS Terminal', style: _ui(20, w: FontWeight.w800, ls: -0.3)),
+            Text('POS Terminal', style: _ui(20, w: FontWeight.w900, ls: -0.4)),
             Text(
               'Zaytouna Park',
               style: _ui(11, w: FontWeight.w600, c: T.muted),
@@ -1419,14 +1509,15 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     ),
   );
 
-  // ─── VIEW TOGGLE (Menu / Retail) ────────────────────────────────────
+  // ─── VIEW TOGGLE ────────────────────────────────────────────────────
   Widget _viewToggle() => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
     child: Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: T.surfaceAlt,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: T.lineSoft),
       ),
       child: Row(
         children: [
@@ -1464,11 +1555,11 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected ? T.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             boxShadow: selected
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: Colors.black.withValues(alpha: 0.06),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
@@ -1479,7 +1570,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: selected ? active : T.muted2),
+              Icon(icon, size: 15, color: selected ? active : T.muted2),
               const SizedBox(width: 6),
               Text(
                 label,
@@ -1496,36 +1587,35 @@ class _UpgradedPOSState extends State<UpgradedPOS>
     );
   }
 
+  // ─── CATEGORY TABS — SCROLLABLE ─────────────────────────────────────
   Widget _categoryTabs() {
     final cats = _currentCategories;
     if (cats.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 2, bottom: 6),
-      child: SizedBox(
-        height: 36,
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          scrollDirection: Axis.horizontal,
-          itemCount: cats.length + 1,
-          separatorBuilder: (_, _) => const SizedBox(width: 6),
-          itemBuilder: (_, i) {
-            if (i == 0) {
-              return _CatPill(
-                title: 'All',
-                isSelected: _selectedCategory == null,
-                accent: _viewAccent,
-                onTap: () => setState(() => _selectedCategory = null),
-              );
-            }
-            final c = cats[i - 1];
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: cats.length + 1,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (_, i) {
+          if (i == 0) {
             return _CatPill(
-              title: c.name,
-              isSelected: _selectedCategory?.id == c.id,
+              title: 'All',
+              isSelected: _selectedCategory == null,
               accent: _viewAccent,
-              onTap: () => setState(() => _selectedCategory = c),
+              onTap: () => setState(() => _selectedCategory = null),
             );
-          },
-        ),
+          }
+          final c = cats[i - 1];
+          return _CatPill(
+            title: c.name,
+            isSelected: _selectedCategory?.id == c.id,
+            accent: _viewAccent,
+            onTap: () => setState(() => _selectedCategory = c),
+          );
+        },
       ),
     );
   }
@@ -1543,7 +1633,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
       builder: (_, c) {
         final cols = (c.maxWidth / 165).floor().clamp(2, 6);
         return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 16),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: cols,
             crossAxisSpacing: 10,
@@ -1562,7 +1652,7 @@ class _UpgradedPOSState extends State<UpgradedPOS>
   }
 }
 
-// ─── REUSABLE WIDGETS (unchanged from before) ─────────────────────────
+// ─── REUSABLE WIDGETS ─────────────────────────────────────────────────
 class _BrandMark extends StatelessWidget {
   final double size;
   const _BrandMark({this.size = 36});
@@ -1576,12 +1666,12 @@ class _BrandMark extends StatelessWidget {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       ),
-      borderRadius: BorderRadius.circular(size * 0.28),
+      borderRadius: BorderRadius.circular(size * 0.26),
       boxShadow: [
         BoxShadow(
-          color: T.primary.withValues(alpha: 0.25),
-          blurRadius: 8,
-          offset: const Offset(0, 3),
+          color: T.primary.withValues(alpha: 0.30),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
         ),
       ],
     ),
@@ -1589,7 +1679,7 @@ class _BrandMark extends StatelessWidget {
       child: Icon(
         Icons.point_of_sale_rounded,
         color: Colors.white,
-        size: size * 0.55,
+        size: size * 0.52,
       ),
     ),
   );
@@ -1623,7 +1713,7 @@ class _EmptyState extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(22),
           decoration: const BoxDecoration(
             color: T.surfaceAlt,
             shape: BoxShape.circle,
@@ -1732,10 +1822,10 @@ class _Selector extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 8),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.05),
-          border: Border.all(color: color.withValues(alpha: 0.20)),
+          color: color.withValues(alpha: 0.06),
+          border: Border.all(color: color.withValues(alpha: 0.22)),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -1746,27 +1836,23 @@ class _Selector extends StatelessWidget {
                 color: color.withValues(alpha: 0.14),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 13, color: color),
+              child: Icon(icon, size: 12, color: color),
             ),
             const SizedBox(width: 6),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: _eyebrow(9)),
+                  Text(label, style: _eyebrow(8.5)),
                   Text(
                     value,
                     overflow: TextOverflow.ellipsis,
-                    style: _ui(12, w: FontWeight.w800),
+                    style: _ui(11.5, w: FontWeight.w800),
                   ),
                 ],
               ),
             ),
-            const Icon(
-              Icons.arrow_drop_down_rounded,
-              color: T.muted2,
-              size: 16,
-            ),
+            Icon(Icons.arrow_drop_down_rounded, color: T.muted2, size: 16),
           ],
         ),
       ),
@@ -1786,36 +1872,32 @@ class _CatPill extends StatelessWidget {
     required this.onTap,
   });
   @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.transparent,
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
-          color: isSelected ? accent : T.surface,
-          border: Border.all(color: isSelected ? accent : T.line),
-          borderRadius: BorderRadius.circular(18),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: accent.withValues(alpha: 0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
-        ),
-        child: Text(
-          title,
-          style: _ui(
-            12,
-            w: FontWeight.w800,
-            c: isSelected ? Colors.white : T.muted,
-          ),
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      decoration: BoxDecoration(
+        color: isSelected ? accent : T.surface,
+        border: Border.all(color: isSelected ? accent : T.line, width: 1.5),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: isSelected
+            ? [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.28),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : [],
+      ),
+      child: Text(
+        title,
+        style: _ui(
+          12,
+          w: FontWeight.w700,
+          c: isSelected ? Colors.white : T.muted,
         ),
       ),
     ),
@@ -1848,16 +1930,16 @@ class _ProductTileState extends State<_ProductTile> {
       onTap: widget.onTap,
       child: AnimatedScale(
         duration: const Duration(milliseconds: 120),
-        scale: _pressed ? 0.97 : 1.0,
+        scale: _pressed ? 0.96 : 1.0,
         child: Container(
           decoration: BoxDecoration(
             color: T.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: T.lineSoft),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: _pressed ? 0.02 : 0.04),
-                blurRadius: _pressed ? 4 : 8,
+                color: Colors.black.withValues(alpha: _pressed ? 0.02 : 0.05),
+                blurRadius: _pressed ? 3 : 8,
                 offset: Offset(0, _pressed ? 1 : 3),
               ),
             ],
@@ -1869,15 +1951,15 @@ class _ProductTileState extends State<_ProductTile> {
                 flex: 5,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: accent.withValues(alpha: 0.08),
+                    color: accent.withValues(alpha: 0.09),
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
+                      top: Radius.circular(14),
                     ),
                   ),
                   child: item.imageUrl != null && item.imageUrl!.isNotEmpty
                       ? ClipRRect(
                           borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(12),
+                            top: Radius.circular(14),
                           ),
                           child: Image.network(
                             item.imageUrl!,
@@ -1903,7 +1985,7 @@ class _ProductTileState extends State<_ProductTile> {
                         style: _ui(
                           11.5,
                           w: FontWeight.w700,
-                        ).copyWith(height: 1.15),
+                        ).copyWith(height: 1.2),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -1921,29 +2003,36 @@ class _ProductTileState extends State<_ProductTile> {
     );
   }
 
-  Widget _fallback(Color accent) {
-    final icon = widget.item.isInventoryItem
-        ? Icons.shopping_basket_rounded
-        : Icons.restaurant_rounded;
-    return Center(
-      child: Icon(icon, size: 30, color: accent.withValues(alpha: 0.55)),
-    );
-  }
+  Widget _fallback(Color accent) => Center(
+    child: Icon(
+      widget.item.isInventoryItem
+          ? Icons.shopping_basket_rounded
+          : Icons.restaurant_rounded,
+      size: 28,
+      color: accent.withValues(alpha: 0.5),
+    ),
+  );
 }
 
-// ─── EMBEDDED CHECKOUT PANEL (unchanged) ──────────────────────────────
+// ─── EMBEDDED CHECKOUT PANEL ──────────────────────────────────────────
 class _EmbeddedCheckoutPanel extends StatefulWidget {
   final double totalUSD, exchangeRate;
   final VoidCallback onBack;
   final Function(double) onExchangeRateChanged;
   final Function(String, bool, bool) onConfirm;
+  final List<CartItem> addedItems;
+  final VoidCallback? onPrintNew;
+
   const _EmbeddedCheckoutPanel({
     required this.totalUSD,
     required this.exchangeRate,
     required this.onBack,
     required this.onExchangeRateChanged,
     required this.onConfirm,
+    this.addedItems = const [],
+    this.onPrintNew,
   });
+
   @override
   State<_EmbeddedCheckoutPanel> createState() => _EmbeddedCheckoutPanelState();
 }
@@ -1972,10 +2061,11 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
 
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
-    padding: const EdgeInsets.all(24),
+    padding: const EdgeInsets.all(22),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Header
         Row(
           children: [
             _IconBtn(
@@ -1986,25 +2076,27 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             const SizedBox(width: 4),
             Text(
               'Complete Checkout',
-              style: _ui(22, w: FontWeight.w800, ls: -0.3),
+              style: _ui(21, w: FontWeight.w800, ls: -0.4),
             ),
           ],
         ),
         const SizedBox(height: 16),
+
+        // Amount due card
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [T.primary, T.primaryD],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: T.primary.withValues(alpha: 0.30),
-                blurRadius: 16,
+                color: T.primary.withValues(alpha: 0.32),
+                blurRadius: 18,
                 offset: const Offset(0, 6),
               ),
             ],
@@ -2014,25 +2106,27 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             children: [
               Text(
                 'AMOUNT DUE',
-                style: _eyebrow(10, c: Colors.white.withValues(alpha: 0.85)),
+                style: _eyebrow(9.5, c: Colors.white.withValues(alpha: 0.8)),
               ),
               const SizedBox(height: 6),
               Text(
                 '\$${widget.totalUSD.toStringAsFixed(2)}',
-                style: _mono(30, w: FontWeight.w900, c: Colors.white),
+                style: _mono(32, w: FontWeight.w900, c: Colors.white),
               ),
               Text(
                 '${roundToNearest5000(widget.totalUSD * rate)} LBP',
                 style: _mono(
-                  14,
+                  13,
                   w: FontWeight.w700,
-                  c: Colors.white.withValues(alpha: 0.9),
+                  c: Colors.white.withValues(alpha: 0.88),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 18),
+
+        // Tender row
         Row(
           children: [
             Expanded(
@@ -2041,7 +2135,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                 (v) => setState(() => tenderedUSD = double.tryParse(v) ?? 0),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: _input(
                 'Tender LBP',
@@ -2051,12 +2145,14 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
+
+        // Rate + change
         Row(
           children: [
             Expanded(
               child: _input(
-                'Exchange Rate (LBP/\$)',
+                'Exchange Rate',
                 (v) {
                   final r = double.tryParse(v) ?? 90000.0;
                   setState(() => rate = r > 0 ? r : 90000.0);
@@ -2066,7 +2162,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                 controller: _rateCtrl,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Container(
                 margin: const EdgeInsets.only(top: 22),
@@ -2088,7 +2184,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                     _changeRow(
                       'Return LBP',
                       '${roundToNearest5000(changeUSD * rate)} LBP',
-                      changeUSD < 0 ? T.danger : T.primary,
+                      changeUSD < 0 ? T.danger : T.accent,
                     ),
                   ],
                 ),
@@ -2096,7 +2192,9 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 22),
+
+        // Buttons
         Row(
           children: [
             Expanded(
@@ -2107,7 +2205,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                 onTap: () => widget.onConfirm('pending', true, false),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: _methodBtn(
                 'CARD',
@@ -2118,7 +2216,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
@@ -2129,7 +2227,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
                 onTap: () => widget.onConfirm('cash', false, true),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: _methodBtn(
                 'PRINT & PAY',
@@ -2141,6 +2239,20 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             ),
           ],
         ),
+
+        // Print new items (edit mode only)
+        if (widget.onPrintNew != null) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: _methodBtn(
+              'PRINT NEW ITEMS  (${widget.addedItems.length})',
+              Icons.playlist_add_check_rounded,
+              T.info,
+              onTap: widget.onPrintNew!,
+            ),
+          ),
+        ],
       ],
     ),
   );
@@ -2150,43 +2262,41 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
     Function(String) onChange, {
     String prefix = '\$ ',
     TextEditingController? controller,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: _eyebrow(10)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: _mono(18, w: FontWeight.w800),
-          decoration: InputDecoration(
-            prefixText: prefix,
-            prefixStyle: _mono(16, w: FontWeight.w700, c: T.muted2),
-            filled: true,
-            fillColor: T.surfaceAlt,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: T.lineSoft),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: T.primary, width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
-            ),
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: _eyebrow(9.5)),
+      const SizedBox(height: 7),
+      TextField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        style: _mono(17, w: FontWeight.w800),
+        decoration: InputDecoration(
+          prefixText: prefix,
+          prefixStyle: _mono(15, w: FontWeight.w700, c: T.muted2),
+          filled: true,
+          fillColor: T.surfaceAlt,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide.none,
           ),
-          onChanged: onChange,
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: T.lineSoft),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: T.primary, width: 1.5),
+          ),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 14,
+          ),
         ),
-      ],
-    );
-  }
+        onChanged: onChange,
+      ),
+    ],
+  );
 
   Widget _changeRow(String label, String val, Color color) => Row(
     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2197,7 +2307,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
       ),
       Text(
         val,
-        style: _mono(14, w: FontWeight.w900, c: color),
+        style: _mono(13, w: FontWeight.w900, c: color),
       ),
     ],
   );
@@ -2221,7 +2331,7 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
               },
         borderRadius: BorderRadius.circular(12),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 15),
           decoration: BoxDecoration(
             gradient: isPrimary && !underpaid
                 ? LinearGradient(colors: [color, color.withValues(alpha: 0.82)])
@@ -2244,19 +2354,19 @@ class _EmbeddedCheckoutPanelState extends State<_EmbeddedCheckoutPanel> {
             children: [
               Icon(
                 icon,
-                size: 18,
+                size: 17,
                 color: isPrimary
                     ? Colors.white
                     : (underpaid ? T.muted2 : color),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 7),
               Text(
                 label,
                 style: _ui(
-                  12,
+                  11.5,
                   w: FontWeight.w800,
                   c: isPrimary ? Colors.white : (underpaid ? T.muted2 : color),
-                  ls: 1.0,
+                  ls: 0.8,
                 ),
               ),
             ],

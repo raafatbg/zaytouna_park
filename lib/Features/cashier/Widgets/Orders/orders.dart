@@ -2,11 +2,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:zaytouna_park/Core/Routers/routes.dart';
 import 'package:zaytouna_park/Features/cashier/Utils/receipt_printer.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
 
@@ -289,11 +287,6 @@ class _OrdersScreenState extends State<OrdersScreen> {
           padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
           child: Row(
             children: [
-              _IconBtn(
-                icon: Icons.arrow_back_rounded,
-                color: _T.ink,
-                onTap: () => context.go(Routes.cashierDashboard),
-              ),
               SizedBox(width: 10.w),
               Container(
                 height: 36,
@@ -661,25 +654,6 @@ class _Chip extends StatelessWidget {
   );
 }
 
-class _IconBtn extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onTap;
-  const _IconBtn({required this.icon, required this.color, this.onTap});
-  @override
-  Widget build(BuildContext context) => Material(
-    color: Colors.transparent,
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Icon(icon, size: 20, color: onTap == null ? _T.muted2 : color),
-      ),
-    ),
-  );
-}
-
 class _StatusBadge extends StatelessWidget {
   final OrderStatus status;
   const _StatusBadge({required this.status});
@@ -951,14 +925,7 @@ class _OrderDetailPanelState extends State<_OrderDetailPanel> {
     ),
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text('Order Details', style: _ui(16, w: FontWeight.w800)),
-        _IconBtn(
-          icon: Icons.close_rounded,
-          color: _T.muted,
-          onTap: widget.onClose,
-        ),
-      ],
+      children: [Text('Order Details', style: _ui(16, w: FontWeight.w800))],
     ),
   );
 

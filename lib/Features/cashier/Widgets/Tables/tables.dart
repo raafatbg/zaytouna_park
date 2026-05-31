@@ -109,10 +109,7 @@ class _TablesPageState extends State<TablesPage> {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _T.ink2),
-          onPressed: () => context.go(Routes.cashierDashboard),
-        ),
+
         title: Text(
           'Floor Plan',
           style: _f(18.sp, FontWeight.w800, _T.ink, ls: -0.4),

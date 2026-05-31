@@ -6,10 +6,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:zaytouna_park/Core/Routers/routes.dart';
 
 // ─── PALETTE (gold, matches terminal/orders/dashboard) ────────────────────
 class CustomerColors {
@@ -821,13 +819,7 @@ class _TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          IconButton(
-            onPressed: () => context.go(Routes.cashierDashboard),
-            icon: const Icon(
-              Icons.arrow_back_rounded,
-              color: CustomerColors.textSecondary,
-            ),
-          ),
+          
           Container(
             width: 40.w,
             height: 40.w,

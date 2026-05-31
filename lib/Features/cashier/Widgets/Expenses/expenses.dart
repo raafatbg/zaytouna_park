@@ -840,19 +840,6 @@ class _TopBarState extends State<_TopBar> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 40.w,
-            height: 40.w,
-            decoration: BoxDecoration(
-              color: ExpenseColors.surface2,
-              borderRadius: BorderRadius.circular(10.r),
-            ),
-            child: Icon(
-              Icons.menu_rounded,
-              size: 20.sp,
-              color: ExpenseColors.text,
-            ),
-          ),
           SizedBox(width: 16.w),
           Container(
             width: 36.w,
