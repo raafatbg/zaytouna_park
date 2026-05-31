@@ -889,7 +889,6 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         bgColor: ZaytounaColors.danger,
         route: Routes.expenses,
       ),
-      // ⚡ Repointed at the new booking page
       MenuTileData(
         title: 'Book Facility',
         icon: Icons.event_available_rounded,
@@ -950,7 +949,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         title: 'Bookings List',
         icon: Icons.event_note_rounded,
         iconColor: Colors.white,
-        bgColor: Color(0xFF14B8A6), // teal — distinct from purple/indigo
+        bgColor: Color(0xFF14B8A6),
         route: Routes.facilityBookings,
       ),
       MenuTileData(
@@ -1006,29 +1005,25 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         borderRadius: BorderRadius.circular(20.r),
         child: Container(
           decoration: BoxDecoration(
-            color: ZaytounaColors.bg,
+            color: ZaytounaColors.bgSecondary,
             borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(color: ZaytounaColors.border, width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(
+              color: ZaytounaColors.border.withValues(alpha: 0.8),
+              width: 1,
+            ),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: EdgeInsets.all(isPhone ? 12.w : 16.w),
+                padding: EdgeInsets.all(isPhone ? 10.w : 14.w),
                 decoration: BoxDecoration(
                   color: data.bgColor,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: data.bgColor.withValues(alpha: 0.3),
-                      blurRadius: 8,
+                      color: data.bgColor.withValues(alpha: 0.25),
+                      blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
@@ -1036,21 +1031,21 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
                 child: Icon(
                   data.icon,
                   color: data.iconColor,
-                  size: (isPhone ? 22 : 28).sp,
+                  size: (isPhone ? 20 : 24).sp,
                 ),
               ),
-              SizedBox(height: isPhone ? 10.h : 14.h),
+              SizedBox(height: 10.h),
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 8.w),
                 child: Text(
                   data.title,
-                  textAlign: TextAlign.center,
-                  style: ZaytounaTypography.caption(
-                    weight: FontWeight.w700,
+                  style: ZaytounaTypography.body(
+                    weight: FontWeight.w600,
+                    fontSize: isPhone ? 12 : 14,
                     color: ZaytounaColors.textPrimary,
-                    fontSize: isPhone ? 11 : 12,
                   ),
-                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1063,180 +1058,140 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
 
   // ─── RECENT ACTIVITY ───────────────────────────────────────────────────
   Widget _buildRecentActivity({required bool isPhone}) {
-    return FutureBuilder<List<dynamic>>(
-      future: _recentOrdersFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Recent Transactions',
-                style: ZaytounaTypography.subheading(
-                  fontSize: isPhone ? 16 : 18,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Recent Orders',
+              style: ZaytounaTypography.subheading(fontSize: isPhone ? 16 : 18),
+            ),
+            TextButton(
+              onPressed: () => context.push(Routes.orders),
+              child: Text(
+                'View All',
+                style: ZaytounaTypography.body(
+                  weight: FontWeight.w600,
+                  color: ZaytounaColors.primary,
+                  fontSize: isPhone ? 13 : 14,
                 ),
               ),
-              SizedBox(height: 16.h),
-              const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            ],
-          );
-        }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Recent Transactions',
-                style: ZaytounaTypography.subheading(
-                  fontSize: isPhone ? 16 : 18,
+            ),
+          ],
+        ),
+        SizedBox(height: 8.h),
+        FutureBuilder<List<dynamic>>(
+          future: _recentOrdersFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              );
+            }
+            if (snapshot.hasError ||
+                !snapshot.hasData ||
+                snapshot.data!.isEmpty) {
+              return Container(
+                padding: EdgeInsets.all(24.w),
+                decoration: BoxDecoration(
+                  color: ZaytounaColors.bgSecondary,
+                  borderRadius: BorderRadius.circular(16.r),
                 ),
-              ),
-              SizedBox(height: 16.h),
-              Center(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32.h),
+                child: Center(
                   child: Text(
-                    'No recent activity',
+                    'No recent orders found',
                     style: ZaytounaTypography.body(),
                   ),
                 ),
-              ),
-            ],
-          );
-        }
-        final sales = snapshot.data!;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    'Recent Transactions',
-                    style: ZaytounaTypography.subheading(
-                      fontSize: isPhone ? 16 : 18,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () => context.push(Routes.orders),
-                  style: TextButton.styleFrom(
-                    foregroundColor: ZaytounaColors.primary,
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isPhone ? 8.w : 12.w,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.r),
-                    ),
-                  ),
-                  child: Text(
-                    'View all',
-                    style: ZaytounaTypography.body(
-                      weight: FontWeight.w600,
-                      color: ZaytounaColors.primary,
-                      fontSize: isPhone ? 13 : 15,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 12.h),
-            ListView.separated(
+              );
+            }
+
+            final orders = snapshot.data!;
+            return ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: sales.length,
-              separatorBuilder: (_, _) => SizedBox(height: 10.h),
+              itemCount: orders.length,
+              separatorBuilder: (_, _) => SizedBox(height: 8.h),
               itemBuilder: (context, index) {
-                final sale = sales[index];
-                final createdAt = DateTime.parse(sale['created_at']);
-                final timeAgo = _getTimeAgo(createdAt);
+                final order = orders[index];
+                final status = (order['order_status'] as String? ?? 'pending')
+                    .toUpperCase();
+
                 return Container(
-                  padding: EdgeInsets.all(isPhone ? 12.w : 14.w),
+                  padding: EdgeInsets.all(14.w),
                   decoration: BoxDecoration(
-                    color: ZaytounaColors.bg,
+                    color: ZaytounaColors.bgSecondary,
                     borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(
-                      color: ZaytounaColors.border,
-                      width: 1.5,
-                    ),
+                    border: Border.all(color: ZaytounaColors.border, width: 1),
                   ),
                   child: Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.all(isPhone ? 10.w : 12.w),
+                        padding: EdgeInsets.all(10.w),
                         decoration: BoxDecoration(
-                          color: ZaytounaColors.surfaceLight,
+                          color: ZaytounaColors.surface,
                           borderRadius: BorderRadius.circular(12.r),
                         ),
                         child: Icon(
-                          Icons.receipt_long_rounded,
+                          Icons.receipt_rounded,
                           color: ZaytounaColors.textSecondary,
-                          size: (isPhone ? 18 : 20).sp,
+                          size: 20.sp,
                         ),
                       ),
-                      SizedBox(width: isPhone ? 10.w : 14.w),
+                      SizedBox(width: 14.w),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Order #${sale['id'].toString().padLeft(6, '0')}',
+                              'Order #${order['id']}',
                               style: ZaytounaTypography.body(
                                 weight: FontWeight.w600,
-                                fontSize: isPhone ? 13 : 15,
+                                color: ZaytounaColors.textPrimary,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                             SizedBox(height: 2.h),
                             Text(
-                              timeAgo,
+                              status,
                               style: ZaytounaTypography.caption(
-                                fontSize: isPhone ? 11 : 12,
+                                weight: FontWeight.w700,
+                                color: status == 'COMPLETED'
+                                    ? ZaytounaColors.success
+                                    : ZaytounaColors.warning,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      SizedBox(width: 8.w),
                       Text(
-                        '${Money.symbol}${((sale['total_amount'] as num?) ?? 0).toStringAsFixed(2)}',
+                        '${Money.symbol}${(order['total_amount'] as num? ?? 0).toStringAsFixed(2)}',
                         style: ZaytounaTypography.body(
                           weight: FontWeight.w700,
-                          color: ZaytounaColors.primary,
-                          fontSize: isPhone ? 14 : 16,
+                          color: ZaytounaColors.textPrimary,
                         ),
                       ),
                     ],
                   ),
                 );
               },
-            ),
-          ],
-        );
-      },
+            );
+          },
+        ),
+      ],
     );
-  }
-
-  String _getTimeAgo(DateTime dateTime) {
-    final difference = DateTime.now().difference(dateTime);
-    if (difference.inSeconds < 60) return 'Just now';
-    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
-    if (difference.inHours < 24) return '${difference.inHours}h ago';
-    return '${difference.inDays}d ago';
   }
 }
 
-// ─── METRIC CARD ─────────────────────────────────────────────────────────
+// ─── METRIC CARD WIDGET ──────────────────────────────────────────────────
 class _MetricCard extends StatelessWidget {
   final String title;
   final String value;
   final String unit;
   final IconData icon;
   final Color color;
+
   const _MetricCard({
     required this.title,
     required this.value,
@@ -1250,46 +1205,50 @@ class _MetricCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        color: ZaytounaColors.bg,
+        color: ZaytounaColors.bgSecondary,
         borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(color: ZaytounaColors.border, width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+          color: ZaytounaColors.border.withValues(alpha: 0.7),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: EdgeInsets.all(8.w),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10.r),
-            ),
-            child: Icon(icon, color: color, size: 18.sp),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: ZaytounaTypography.caption(
+                    weight: FontWeight.w600,
+                    color: ZaytounaColors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(icon, color: color, size: 20.sp),
+            ],
           ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 value,
-                style: ZaytounaTypography.heading(fontSize: 20),
+                style: ZaytounaTypography.heading(
+                  weight: FontWeight.w700,
+                  fontSize: 20,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               SizedBox(height: 2.h),
               Text(
-                title,
-                style: ZaytounaTypography.caption(
-                  color: ZaytounaColors.textSecondary,
-                  weight: FontWeight.w600,
-                ),
+                unit,
+                style: ZaytounaTypography.caption(fontSize: 10),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),

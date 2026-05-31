@@ -1,37 +1,33 @@
 // lib/Features/Home/Shell/cashier_shell.dart
-// ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
 import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
+import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
-
+import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
-
 import 'package:zaytouna_park/Features/cashier/Widgets/Tables/tables.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Tables/manage_tables_page.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Facilities/facilities_booking_page.dart';
 import 'package:zaytouna_park/Features/cashier/Widgets/Facilities/facility_bookings_list_page.dart';
 import 'package:zaytouna_park/Features/cashier/cash_home.dart';
-
 import 'package:zaytouna_park/Features/kitchen/widgets/menu%20mangement/menumanagementscreen.dart';
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
 class _C {
   _C._();
   static const primary = Color(0xFF1A6B3C);
-  static const primaryD = Color(0xFF134D2B);
   static const primaryL = Color(0xFFE8F5EE);
-  static const accent = Color(0xFFD4A017);
   static const bg = Color(0xFFFFFFFF);
   static const sidebarBg = Color(0xFFF8FAF9);
-  static const surface = Color(0xFFFFFFFF);
   static const border = Color(0xFFDDE6DF);
   static const ink = Color(0xFF0D1F15);
   static const muted = Color(0xFF6B7F72);
@@ -50,7 +46,11 @@ enum CashierTab {
   manageTables,
   bookFacility,
   facilityBookings,
+  categories,
+  suppliers,
   sales,
+
+  settings,
   expenses,
   inventory,
   menu,
@@ -68,10 +68,12 @@ class _NavItem {
 const _navItems = <_NavItem>[
   // ── DAILY OPS
   _NavItem(CashierTab.home, Icons.home_rounded, 'Home', section: 'DAILY OPS'),
-  _NavItem(CashierTab.pos, Icons.point_of_sale_rounded, 'POS Terminal'),
   _NavItem(CashierTab.orders, Icons.receipt_long_rounded, 'Orders'),
   _NavItem(CashierTab.customers, Icons.people_rounded, 'Customers'),
   _NavItem(CashierTab.tables, Icons.table_restaurant_rounded, 'Tables'),
+  _NavItem(CashierTab.categories, Icons.category_rounded, 'Categories'),
+  _NavItem(CashierTab.suppliers, Icons.local_shipping_rounded, 'Suppliers'),
+  _NavItem(CashierTab.manageTables, Icons.edit_note_rounded, 'Manage Tables'),
   // ── FACILITIES
   _NavItem(
     CashierTab.bookFacility,
@@ -99,6 +101,7 @@ const _navItems = <_NavItem>[
   _NavItem(CashierTab.inventory, Icons.inventory_2_rounded, 'Inventory'),
   _NavItem(CashierTab.menu, Icons.restaurant_menu_rounded, 'Menu Management'),
   _NavItem(CashierTab.manageTables, Icons.edit_note_rounded, 'Manage Tables'),
+  _NavItem(CashierTab.settings, Icons.settings_rounded, 'Settings'),
 ];
 
 // ─── SHELL ───────────────────────────────────────────────────────────────────
@@ -111,15 +114,32 @@ class CashierShellScreen extends StatefulWidget {
 class _CashierShellScreenState extends State<CashierShellScreen> {
   CashierTab _current = CashierTab.home;
 
-  void _select(CashierTab t) => setState(() => _current = t);
+  void _launchTerminal() {
+    if (mounted) context.push(Routes.pos);
+  }
 
-  /// Called by PremiumCashierHome's "Launch Terminal" button
-  void _launchTerminal() => _select(CashierTab.pos);
+  void _select(CashierTab t) {
+    if (t == CashierTab.pos) {
+      context.push(Routes.pos);
+      return;
+    }
+    if (t == CashierTab.bookFacility) {
+      context.push(Routes.bookFacility);
+      return;
+    }
+    setState(() => _current = t);
+  }
 
   Widget _buildPage() {
     switch (_current) {
       case CashierTab.home:
         return PremiumCashierHome(onLaunchTerminal: _launchTerminal);
+      case CashierTab.categories:
+        return const CategoryScreen();
+      case CashierTab.suppliers:
+        return const SuppliersScreen();
+      case CashierTab.settings:
+        return const SettingsScreen();
       case CashierTab.pos:
         return const UpgradedPOS();
       case CashierTab.orders:
@@ -155,7 +175,6 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
     );
   }
 
-  // ── DESKTOP: sidebar + content ─────────────────────────────────────────────
   Widget _buildDesktop() {
     return Row(
       children: [
@@ -166,7 +185,6 @@ class _CashierShellScreenState extends State<CashierShellScreen> {
     );
   }
 
-  // ── MOBILE: bottom nav + content ───────────────────────────────────────────
   Widget _buildMobile() {
     const bottomTabs = [
       CashierTab.home,
@@ -197,7 +215,6 @@ class _Sidebar extends StatelessWidget {
       color: _C.sidebarBg,
       child: Column(
         children: [
-          // Logo / brand header
           Container(
             height: 64,
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -235,7 +252,7 @@ class _Sidebar extends StatelessWidget {
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: _navItems.length,
-              itemBuilder: (_, i) {
+              itemBuilder: (context, i) {
                 final item = _navItems[i];
                 final isActive = item.tab == current;
                 return Column(
@@ -265,8 +282,7 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
           const Divider(height: 1, color: _C.border),
-          // Logout
-          _LogoutButton(),
+          const _LogoutButton(),
         ],
       ),
     );
@@ -298,7 +314,6 @@ class _SidebarTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
-                // Active indicator bar
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: 3,
@@ -315,16 +330,18 @@ class _SidebarTile extends StatelessWidget {
                   color: isActive ? _C.primary : _C.muted,
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  item.label,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                    color: isActive ? _C.primary : _C.ink,
+                Expanded(
+                  child: Text(
+                    item.label,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                      color: isActive ? _C.primary : _C.ink,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (isActive) ...[
-                  const Spacer(),
                   Container(
                     width: 6,
                     height: 6,
@@ -344,6 +361,8 @@ class _SidebarTile extends StatelessWidget {
 }
 
 class _LogoutButton extends StatelessWidget {
+  const _LogoutButton();
+
   @override
   Widget build(BuildContext context) {
     final user = RouteGuard.user;
@@ -404,10 +423,13 @@ class _LogoutButton extends StatelessWidget {
         ],
       ),
     );
+
     if (result == true && context.mounted) {
       await RouteGuard.logout();
-      if (context.mounted)
-        Navigator.pushNamedAndRemoveUntil(context, Routes.login, (_) => false);
+      if (context.mounted) {
+        // Safe context-based navigation via GoRouter
+        context.go(Routes.login);
+      }
     }
   }
 }
@@ -485,6 +507,7 @@ class _BottomNav extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         _label(t),
+                        textScaler: TextScaler.noScaling,
                         style: GoogleFonts.inter(
                           fontSize: 10,
                           fontWeight: active

@@ -36,9 +36,8 @@ class _Booking {
   final int? customerId;
   final String customerName;
   final String customerPhone;
-  final String date; // YYYY-MM-DD
-  final String checkIn; // HH:mm:ss
-  final String checkOut; // HH:mm:ss
+  final DateTime startAt; // local
+  final DateTime endAt; // local
   final String status;
   final double totalCost;
 
@@ -50,29 +49,46 @@ class _Booking {
     required this.customerId,
     required this.customerName,
     required this.customerPhone,
-    required this.date,
-    required this.checkIn,
-    required this.checkOut,
+    required this.startAt,
+    required this.endAt,
     required this.status,
     required this.totalCost,
   });
 
-  // Minutes since midnight — for overlap math
-  int get startMin {
-    final parts = checkIn.split(':');
-    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+  Duration get duration => endAt.difference(startAt);
+
+  /// True if start and end are on the same local calendar day.
+  bool get sameDay =>
+      startAt.year == endAt.year &&
+      startAt.month == endAt.month &&
+      startAt.day == endAt.day;
+
+  String _two(int n) => n.toString().padLeft(2, '0');
+
+  String _hm(DateTime t) => '${_two(t.hour)}:${_two(t.minute)}';
+
+  String _md(DateTime t) => '${_monthAbbr(t.month)} ${t.day}'; // e.g. "May 28"
+
+  String get timeRange {
+    if (sameDay) return '${_hm(startAt)} – ${_hm(endAt)}';
+    // Overnight / multi-day booking
+    return '${_md(startAt)} ${_hm(startAt)} → ${_md(endAt)} ${_hm(endAt)}';
   }
 
-  int get endMin {
-    final parts = checkOut.split(':');
-    final h = int.parse(parts[0]);
-    // Handle "00:00" check-out as end-of-day (1440)
-    final mins = h * 60 + int.parse(parts[1]);
-    return mins == 0 ? 1440 : mins;
-  }
-
-  String get timeRange =>
-      '${checkIn.substring(0, 5)} – ${checkOut.substring(0, 5)}';
+  static String _monthAbbr(int m) => const [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ][m - 1];
 }
 
 // ─── PAGE ───────────────────────────────────────────────────────────────────
@@ -86,7 +102,6 @@ class FacilityBookingsListPage extends StatefulWidget {
 
 class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
   final _sb = Supabase.instance.client;
-
   DateTime _date = DateTime.now();
   String _statusFilter = 'all'; // all|confirmed|cancelled|completed|no_show
   List<_Booking> _bookings = [];
@@ -101,8 +116,15 @@ class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
   }
 
   String _two(int n) => n.toString().padLeft(2, '0');
+
   String get _dateStr =>
       '${_date.year}-${_two(_date.month)}-${_two(_date.day)}';
+
+  /// Local midnight at the start of the selected date.
+  DateTime get _dayStart => DateTime(_date.year, _date.month, _date.day);
+
+  /// Local midnight at the start of the day AFTER the selected date.
+  DateTime get _dayEnd => _dayStart.add(const Duration(days: 1));
 
   // ─── LOAD ─────────────────────────────────────────────────────────────────
   Future<void> _load() async {
@@ -111,16 +133,19 @@ class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
       _error = null;
     });
     try {
+      // Fetch any booking that OVERLAPS with the selected day:
+      //   start_at < dayEnd  AND  end_at > dayStart
+      // This naturally includes overnight cabin bookings.
       final rows = await _sb
           .from('facility_bookings')
           .select(
-            'id, booking_date, check_in_time, check_out_time, '
-            'status, total_cost, '
+            'id, start_at, end_at, status, total_cost, '
             'facilities(id, name, facility_types(name)), '
             'customers(id, name, phone)',
           )
-          .eq('booking_date', _dateStr)
-          .order('check_in_time');
+          .lt('start_at', _dayEnd.toUtc().toIso8601String())
+          .gt('end_at', _dayStart.toUtc().toIso8601String())
+          .order('start_at');
 
       final list = (rows as List).map<_Booking>((r) {
         final f = r['facilities'];
@@ -141,23 +166,21 @@ class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
           customerId: (cMap['id'] as num?)?.toInt(),
           customerName: cMap['name'] as String? ?? 'Walk-in',
           customerPhone: cMap['phone'] as String? ?? '',
-          date: r['booking_date'] as String,
-          checkIn: r['check_in_time'] as String,
-          checkOut: r['check_out_time'] as String,
+          startAt: DateTime.parse(r['start_at'] as String).toLocal(),
+          endAt: DateTime.parse(r['end_at'] as String).toLocal(),
           status: r['status'] as String? ?? 'confirmed',
           totalCost: (r['total_cost'] as num?)?.toDouble() ?? 0,
         );
       }).toList();
 
-      // Sort by time, then facility
+      // Sort: by start time, tiebreak by facility name.
       list.sort((a, b) {
-        final t = a.startMin.compareTo(b.startMin);
+        final t = a.startAt.compareTo(b.startAt);
         return t != 0 ? t : a.facilityName.compareTo(b.facilityName);
       });
 
       _bookings = list;
       _conflictIds = _detectConflicts(list);
-
       setState(() => _loading = false);
     } catch (e) {
       setState(() {
@@ -182,7 +205,7 @@ class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
         for (int j = i + 1; j < list.length; j++) {
           final a = list[i];
           final b = list[j];
-          if (a.startMin < b.endMin && b.startMin < a.endMin) {
+          if (a.startAt.isBefore(b.endAt) && b.startAt.isBefore(a.endAt)) {
             conflicts.add(a.id);
             conflicts.add(b.id);
           }
@@ -224,7 +247,6 @@ class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
       ),
     );
     if (ok != true) return;
-
     try {
       await _sb
           .from('facility_bookings')
@@ -504,7 +526,6 @@ class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
         ),
       );
     }
-
     final list = _filtered;
     if (list.isEmpty) {
       return Center(
@@ -530,7 +551,6 @@ class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
         ),
       );
     }
-
     return RefreshIndicator(
       onRefresh: _load,
       color: _T.primary,
@@ -557,7 +577,6 @@ class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
       'no_show' => (_T.warn, _T.warnBg, 'No-show'),
       _ => (_T.muted, _T.surfaceAlt, b.status),
     };
-
     return Container(
       decoration: BoxDecoration(
         color: _T.surface,
@@ -586,17 +605,42 @@ class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
               children: [
                 Icon(Icons.access_time_rounded, size: 16, color: _T.primaryD),
                 const SizedBox(width: 6),
-                Text(
-                  b.timeRange,
-                  style: GoogleFonts.inter(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: _T.ink,
-                    letterSpacing: -0.2,
+                Expanded(
+                  child: Text(
+                    b.timeRange,
+                    style: GoogleFonts.inter(
+                      fontSize: b.sameDay ? 15 : 13,
+                      fontWeight: FontWeight.w800,
+                      color: _T.ink,
+                      letterSpacing: -0.2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (!b.sameDay) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _T.infoBg,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'OVERNIGHT',
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: _T.info,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ],
                 if (isConflict) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -631,7 +675,7 @@ class _FacilityBookingsListPageState extends State<FacilityBookingsListPage> {
                     ),
                   ),
                 ],
-                const Spacer(),
+                const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,

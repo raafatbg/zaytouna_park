@@ -1,10 +1,9 @@
 class Staff {
-  final int id;
+  final String id; // UUID
   final String name;
   final String? email;
   final String? phone;
   final int roleId;
-  final String? passwordHash;
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -15,7 +14,6 @@ class Staff {
     this.email,
     this.phone,
     required this.roleId,
-    this.passwordHash,
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
@@ -23,15 +21,18 @@ class Staff {
 
   factory Staff.fromJson(Map<String, dynamic> json) {
     return Staff(
-      id: json['id'],
-      name: json['name'],
+      id: json['id']?.toString() ?? '',
+      name: json['name'] ?? '',
       email: json['email'],
       phone: json['phone'],
-      roleId: json['role_id'],
-      passwordHash: json['password_hash'],
+      roleId: json['role_id'] ?? 0,
       isActive: json['is_active'] ?? true,
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : DateTime.now(),
     );
   }
 
@@ -42,7 +43,6 @@ class Staff {
       'email': email,
       'phone': phone,
       'role_id': roleId,
-      'password_hash': passwordHash,
       'is_active': isActive,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),

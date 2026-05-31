@@ -71,7 +71,7 @@ class AppRouter {
       ),
 
       GoRoute(
-        path: Routes.shell,
+        path: Routes.cashierDashboard,
         pageBuilder: (c, s) =>
             _fade(state: s, child: const CashierShellScreen()),
       ),
