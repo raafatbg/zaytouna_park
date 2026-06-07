@@ -7,22 +7,17 @@ import 'package:zaytouna_park/zaytouna_park.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Read environment variables baked directly into the compiled JavaScript binary
   const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   const supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
 
-  // Guard check to make sure variables are present during compilation
   if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
-    assert(
-      false,
-      "Missing Supabase environment variables! Ensure you build with the --dart-define-from-file flag.",
+    throw Exception(
+      'Missing Supabase environment variables! '
+      'Run with: flutter run --dart-flutter cleandefine-from-file=env.json',
     );
   }
 
-  // Initialize Supabase natively before the app starts
   await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-
-  // Load saved user session before showing UI
   await RouteGuard.initialize();
 
   runApp(const ZaytounaPark());
