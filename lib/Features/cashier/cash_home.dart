@@ -1,5 +1,4 @@
 // ignore_for_file: use_build_context_synchronously
-
 import 'dart:async';
 import 'dart:developer' as developer;
 
@@ -9,23 +8,81 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 import 'package:zaytouna_park/Core/Routers/routes.dart';
 
-// ─── RESPONSIVE BREAKPOINTS ──────────────────────────────────────────────
-class _Bp {
-  _Bp._();
-  static const double phone = 600;
-  static const double wide = 1600;
-  static bool isPhone(double w) => w < phone;
-  static bool isWide(double w) => w >= wide;
+// ─── RESPONSIVE ──────────────────────────────────────────────────────────
+enum ScreenSize { phone, tablet, desktop, wide }
+
+class Responsive {
+  Responsive._();
+
+  static const double phoneMax = 600;
+  static const double tabletMax = 1100;
+  static const double desktopMax = 1600;
+  static const double maxContentWidth = 1400;
+
+  static ScreenSize sizeOf(double w) {
+    if (w < phoneMax) return ScreenSize.phone;
+    if (w < tabletMax) return ScreenSize.tablet;
+    if (w < desktopMax) return ScreenSize.desktop;
+    return ScreenSize.wide;
+  }
+
+  static bool isPhone(double w) => w < phoneMax;
+
+  static T value<T>(
+    double w, {
+    required T phone,
+    T? tablet,
+    T? desktop,
+    T? wide,
+  }) {
+    switch (sizeOf(w)) {
+      case ScreenSize.phone:
+        return phone;
+      case ScreenSize.tablet:
+        return tablet ?? phone;
+      case ScreenSize.desktop:
+        return desktop ?? tablet ?? phone;
+      case ScreenSize.wide:
+        return wide ?? desktop ?? tablet ?? phone;
+    }
+  }
+
+  /// Clamp ScreenUtil scaling so type stays readable (and not huge) on tablets.
+  static double clampSp(double size, {double min = 0.85, double max = 1.15}) {
+    return size.sp.clamp(size * min, size * max);
+  }
+}
+
+// ─── DESIGN TOKENS ───────────────────────────────────────────────────────
+class Insets {
+  Insets._();
+  static double get xs => 4.w;
+  static double get sm => 8.w;
+  static double get md => 12.w;
+  static double get lg => 16.w;
+  static double get xl => 24.w;
+  static double get xxl => 32.w;
+}
+
+class Corners {
+  Corners._();
+  static double get sm => 12.r;
+  static double get md => 16.r;
+  static double get lg => 20.r;
+  static double get xl => 24.r;
 }
 
 // ─── DISPLAY CURRENCY ────────────────────────────────────────────────────
 class Money {
+  Money._();
   static const String code = 'USD';
   static const String symbol = '\$';
+
+  static String format(num? amount) =>
+      '$symbol${(amount ?? 0).toStringAsFixed(2)}';
 }
 
 // ─── COLOR PALETTE ───────────────────────────────────────────────────────
@@ -43,34 +100,62 @@ class ZaytounaColors {
   static const textSecondary = Color(0xFF6C757D);
   static const textTertiary = Color(0xFFADB5BD);
   static const success = Color(0xFF10B981);
-  static const successLight = Color(0xFFD1FAE5);
   static const warning = Color(0xFFF59E0B);
-  static const warningLight = Color(0xFFFEF3C7);
   static const danger = Color(0xFFEF4444);
   static const dangerLight = Color(0xFFFEE2E2);
   static const info = Color(0xFF3B82F6);
-  static const infoLight = Color(0xFFDBEAFE);
+  static const purple = Color(0xFF8B5CF6);
+  static const purpleDark = Color(0xFF6D28D9);
+  static const indigo = Color(0xFF6366F1);
+  static const teal = Color(0xFF14B8A6);
+}
+
+// ─── SHARED DECORATIONS ──────────────────────────────────────────────────
+class Decorations {
+  Decorations._();
+
+  static BoxDecoration card({double? radius, Color? color}) => BoxDecoration(
+    color: color ?? ZaytounaColors.bgSecondary,
+    borderRadius: BorderRadius.circular(radius ?? Corners.lg),
+    border: Border.all(
+      color: ZaytounaColors.border.withValues(alpha: 0.8),
+      width: 1,
+    ),
+  );
+
+  static BoxDecoration circleIcon(Color color) => BoxDecoration(
+    color: color,
+    shape: BoxShape.circle,
+    boxShadow: [
+      BoxShadow(
+        color: color.withValues(alpha: 0.25),
+        blurRadius: 10,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
+
+  static BoxDecoration gradientCta(Color base) => BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [base.withValues(alpha: 0.12), base.withValues(alpha: 0.02)],
+    ),
+    borderRadius: BorderRadius.circular(Corners.xl),
+    border: Border.all(color: base.withValues(alpha: 0.2)),
+  );
 }
 
 // ─── TYPOGRAPHY ──────────────────────────────────────────────────────────
 class ZaytounaTypography {
-  static TextStyle displayLarge({
-    FontWeight weight = FontWeight.w700,
-    Color? color,
-    double fontSize = 48,
-  }) => GoogleFonts.inter(
-    fontSize: fontSize.sp,
-    fontWeight: weight,
-    letterSpacing: -0.5,
-    color: color ?? ZaytounaColors.textPrimary,
-  );
+  ZaytounaTypography._();
 
   static TextStyle heading({
     FontWeight weight = FontWeight.w600,
     Color? color,
     double fontSize = 24,
   }) => GoogleFonts.inter(
-    fontSize: fontSize.sp,
+    fontSize: Responsive.clampSp(fontSize),
     fontWeight: weight,
     letterSpacing: -0.2,
     color: color ?? ZaytounaColors.textPrimary,
@@ -81,7 +166,7 @@ class ZaytounaTypography {
     Color? color,
     double fontSize = 18,
   }) => GoogleFonts.inter(
-    fontSize: fontSize.sp,
+    fontSize: Responsive.clampSp(fontSize),
     fontWeight: weight,
     letterSpacing: -0.1,
     color: color ?? ZaytounaColors.textPrimary,
@@ -92,7 +177,7 @@ class ZaytounaTypography {
     Color? color,
     double fontSize = 15,
   }) => GoogleFonts.inter(
-    fontSize: fontSize.sp,
+    fontSize: Responsive.clampSp(fontSize),
     fontWeight: weight,
     color: color ?? ZaytounaColors.textSecondary,
   );
@@ -102,7 +187,7 @@ class ZaytounaTypography {
     Color? color,
     double fontSize = 12,
   }) => GoogleFonts.inter(
-    fontSize: fontSize.sp,
+    fontSize: Responsive.clampSp(fontSize),
     fontWeight: weight,
     letterSpacing: 0.3,
     color: color ?? ZaytounaColors.textTertiary,
@@ -113,12 +198,12 @@ class ZaytounaTypography {
 class MenuTileData {
   final String title;
   final IconData icon;
-  final Color iconColor, bgColor;
+  final Color bgColor;
   final String route;
+
   const MenuTileData({
     required this.title,
     required this.icon,
-    required this.iconColor,
     required this.bgColor,
     required this.route,
   });
@@ -130,14 +215,25 @@ class SaleMetrics {
   final double averageOrderValue;
   final int itemsSold;
   final DateTime timestamp;
-  SaleMetrics({
+
+  const SaleMetrics({
     required this.totalOrders,
     required this.totalRevenue,
     required this.averageOrderValue,
     required this.itemsSold,
     required this.timestamp,
   });
+
+  factory SaleMetrics.empty() => SaleMetrics(
+    totalOrders: 0,
+    totalRevenue: 0,
+    averageOrderValue: 0,
+    itemsSold: 0,
+    timestamp: DateTime.now(),
+  );
 }
+
+enum _BtnVariant { primary, secondary, danger }
 
 // ─── HOME SCREEN ─────────────────────────────────────────────────────────
 class PremiumCashierHome extends StatefulWidget {
@@ -157,7 +253,6 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   DateTime? _lastFetchTime;
   RealtimeChannel? _realtimeChannel;
   Timer? _refreshDebounce;
-
   late Future<List<dynamic>> _recentOrdersFuture;
 
   @override
@@ -165,10 +260,9 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     super.initState();
     _supabase = Supabase.instance.client;
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     )..forward();
-
     _recentOrdersFuture = _fetchRecentOrders();
     _setupRealtimeSubscriptions();
     _fetchMetrics();
@@ -182,7 +276,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     super.dispose();
   }
 
-  // ─── DATA ──────────────────────────────────────────────────────────────
+  // ─── DATA ────────────────────────────────────────────────────────────
   void _setupRealtimeSubscriptions() {
     _realtimeChannel = _supabase
         .channel('dashboard_orders_insert')
@@ -205,12 +299,14 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
     _refreshDebounce = Timer(const Duration(seconds: 2), () {
       _cachedMetrics = null;
       _fetchMetrics();
-      setState(() => _recentOrdersFuture = _fetchRecentOrders());
+      if (mounted) {
+        setState(() => _recentOrdersFuture = _fetchRecentOrders());
+      }
     });
   }
 
-  Future<List<dynamic>> _fetchRecentOrders() async {
-    return await _supabase
+  Future<List<dynamic>> _fetchRecentOrders() {
+    return _supabase
         .from('orders')
         .select('id, total_amount, created_at, order_status')
         .neq('order_status', 'voided')
@@ -219,112 +315,145 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   }
 
   Future<void> _fetchMetrics() async {
+    final lastFetch = _lastFetchTime;
     if (_cachedMetrics != null &&
-        _lastFetchTime != null &&
-        DateTime.now().difference(_lastFetchTime!).inSeconds < 30) {
+        lastFetch != null &&
+        DateTime.now().difference(lastFetch).inSeconds < 30) {
       return;
     }
+
     try {
       final now = DateTime.now();
       final startOfDay = DateTime(now.year, now.month, now.day);
 
-      final salesData = await _supabase
-          .from('orders')
-          .select('id, total_amount')
-          .gte('created_at', startOfDay.toIso8601String())
-          .neq('order_status', 'voided');
+      final salesData =
+          await _supabase
+                  .from('orders')
+                  .select('id, total_amount')
+                  .gte('created_at', startOfDay.toIso8601String())
+                  .neq('order_status', 'voided')
+              as List<dynamic>;
 
-      final orderIds = (salesData as List<dynamic>)
-          .map((o) => o['id'])
-          .toList();
+      final orderIds = salesData.map((o) => o['id']).toList();
 
       int itemsSold = 0;
       if (orderIds.isNotEmpty) {
-        final itemsData = await _supabase
-            .from('order_items')
-            .select('quantity')
-            .inFilter('order_id', orderIds);
-        itemsSold = (itemsData as List<dynamic>).fold(
+        final itemsData =
+            await _supabase
+                    .from('order_items')
+                    .select('quantity')
+                    .inFilter('order_id', orderIds)
+                as List<dynamic>;
+        itemsSold = itemsData.fold(
           0,
           (sum, item) => sum + (item['quantity'] as int? ?? 0),
         );
       }
 
       final revenue = salesData.fold<double>(
-        0.0,
+        0,
         (sum, item) => sum + ((item['total_amount'] as num?) ?? 0).toDouble(),
       );
-      final totalSalesCount = salesData.length;
-      final avgOrder = totalSalesCount > 0 ? revenue / totalSalesCount : 0.0;
+      final count = salesData.length;
 
-      if (mounted) {
-        setState(() {
-          _cachedMetrics = SaleMetrics(
-            totalOrders: totalSalesCount,
-            totalRevenue: revenue,
-            averageOrderValue: avgOrder,
-            itemsSold: itemsSold,
-            timestamp: now,
-          );
-          _lastFetchTime = now;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _cachedMetrics = SaleMetrics(
+          totalOrders: count,
+          totalRevenue: revenue,
+          averageOrderValue: count > 0 ? revenue / count : 0,
+          itemsSold: itemsSold,
+          timestamp: now,
+        );
+        _lastFetchTime = now;
+      });
     } catch (e, st) {
       developer.log('Error fetching metrics', error: e, stackTrace: st);
       if (mounted && _cachedMetrics == null) {
-        setState(() {
-          _cachedMetrics = SaleMetrics(
-            totalOrders: 0,
-            totalRevenue: 0.0,
-            averageOrderValue: 0.0,
-            itemsSold: 0,
-            timestamp: DateTime.now(),
-          );
-        });
+        setState(() => _cachedMetrics = SaleMetrics.empty());
       }
     }
   }
 
+  Future<void> _onRefresh() async {
+    _cachedMetrics = null;
+    await _fetchMetrics();
+    if (mounted) {
+      setState(() => _recentOrdersFuture = _fetchRecentOrders());
+    }
+  }
+
+  // ─── TERMINAL LAUNCH (FIXED) ─────────────────────────────────────────
+  void _launchTerminal() {
+    HapticFeedback.lightImpact();
+
+    final canUse =
+        RouteGuard.user?.role == 'admin' ||
+        RouteGuard.hasPermission(AppPermissions.useTerminal);
+
+    if (!canUse) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text("You don't have terminal access"),
+            backgroundColor: ZaytounaColors.danger,
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.all(Insets.lg),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(Corners.sm),
+            ),
+          ),
+        );
+      return;
+    }
+
+    // Keep the parent hook (if any) AND guarantee navigation happens.
+    widget.onLaunchTerminal.call();
+    context.push(Routes.pos);
+  }
+
   // ─── UI HELPERS ────────────────────────────────────────────────────────
   void _showNewOrderNotification(String? orderId) {
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(
-              Icons.notifications_active_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Text(
-                orderId != null
-                    ? 'New order #$orderId received!'
-                    : 'New order received!',
-                style: ZaytounaTypography.body(
-                  weight: FontWeight.w600,
-                  color: Colors.white,
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(
+                Icons.notifications_active_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+              SizedBox(width: Insets.md),
+              Expanded(
+                child: Text(
+                  orderId != null
+                      ? 'New order #$orderId received!'
+                      : 'New order received!',
+                  style: ZaytounaTypography.body(
+                    weight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: ZaytounaColors.primary,
+          duration: const Duration(seconds: 4),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(Insets.lg),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(Corners.sm),
+          ),
+          action: SnackBarAction(
+            label: 'VIEW',
+            textColor: Colors.white,
+            onPressed: () => context.push(Routes.orders),
+          ),
         ),
-        backgroundColor: ZaytounaColors.primary,
-        duration: const Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.all(16.w),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12.r),
-        ),
-        action: SnackBarAction(
-          label: 'VIEW',
-          textColor: Colors.white,
-          onPressed: () => context.push(Routes.orders),
-        ),
-      ),
-    );
+      );
   }
 
   Future<void> _handleLogout() async {
@@ -333,54 +462,57 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
       builder: (context) => Dialog(
         backgroundColor: ZaytounaColors.bg,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24.r),
+          borderRadius: BorderRadius.circular(Corners.xl),
         ),
-        child: Padding(
-          padding: EdgeInsets.all(24.w),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.all(16.w),
-                decoration: BoxDecoration(
-                  color: ZaytounaColors.dangerLight,
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-                child: Icon(
-                  Icons.logout_rounded,
-                  color: ZaytounaColors.danger,
-                  size: 32.sp,
-                ),
-              ),
-              SizedBox(height: 20.h),
-              Text('Sign Out', style: ZaytounaTypography.heading()),
-              SizedBox(height: 12.h),
-              Text(
-                'Are you sure you want to sign out?',
-                style: ZaytounaTypography.body(),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 28.h),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildButton(
-                      label: 'Cancel',
-                      onPressed: () => Navigator.pop(context, false),
-                      variant: 'secondary',
-                    ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Padding(
+            padding: EdgeInsets.all(Insets.xl),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(Insets.lg),
+                  decoration: BoxDecoration(
+                    color: ZaytounaColors.dangerLight,
+                    borderRadius: BorderRadius.circular(Corners.md),
                   ),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: _buildButton(
-                      label: 'Sign Out',
-                      onPressed: () => Navigator.pop(context, true),
-                      variant: 'danger',
-                    ),
+                  child: Icon(
+                    Icons.logout_rounded,
+                    color: ZaytounaColors.danger,
+                    size: Responsive.clampSp(32),
                   ),
-                ],
-              ),
-            ],
+                ),
+                SizedBox(height: 20.h),
+                Text('Sign Out', style: ZaytounaTypography.heading()),
+                SizedBox(height: Insets.md),
+                Text(
+                  'Are you sure you want to sign out?',
+                  style: ZaytounaTypography.body(),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 28.h),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildButton(
+                        label: 'Cancel',
+                        onPressed: () => Navigator.pop(context, false),
+                        variant: _BtnVariant.secondary,
+                      ),
+                    ),
+                    SizedBox(width: Insets.md),
+                    Expanded(
+                      child: _buildButton(
+                        label: 'Sign Out',
+                        onPressed: () => Navigator.pop(context, true),
+                        variant: _BtnVariant.danger,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -395,26 +527,26 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   Widget _buildButton({
     required String label,
     required VoidCallback onPressed,
-    String variant = 'primary',
+    _BtnVariant variant = _BtnVariant.primary,
   }) {
-    final isPrimary = variant == 'primary';
-    final isDanger = variant == 'danger';
-    final isSecondary = variant == 'secondary';
+    final isFilled = variant != _BtnVariant.secondary;
+    final fill = switch (variant) {
+      _BtnVariant.primary => ZaytounaColors.primary,
+      _BtnVariant.danger => ZaytounaColors.danger,
+      _BtnVariant.secondary => Colors.transparent,
+    };
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(Corners.sm),
         child: Container(
           padding: EdgeInsets.symmetric(vertical: 12.h),
           decoration: BoxDecoration(
-            color: isDanger
-                ? ZaytounaColors.danger
-                : isPrimary
-                ? ZaytounaColors.primary
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12.r),
-            border: isSecondary
+            color: fill,
+            borderRadius: BorderRadius.circular(Corners.sm),
+            border: variant == _BtnVariant.secondary
                 ? Border.all(color: ZaytounaColors.border, width: 1.5)
                 : null,
           ),
@@ -423,9 +555,7 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
               label,
               style: ZaytounaTypography.body(
                 weight: FontWeight.w600,
-                color: isDanger || isPrimary
-                    ? Colors.white
-                    : ZaytounaColors.textPrimary,
+                color: isFilled ? Colors.white : ZaytounaColors.textPrimary,
               ),
             ),
           ),
@@ -443,58 +573,65 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
         child: LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
-            final isPhone = _Bp.isPhone(w);
-            final double hPad = isPhone
-                ? 12
-                : _Bp.isWide(w)
-                ? 32
-                : 24;
+            final isPhone = Responsive.isPhone(w);
+            final hPad = Responsive.value<double>(
+              w,
+              phone: 12,
+              tablet: 24,
+              desktop: 28,
+              wide: 32,
+            );
+
             return FadeTransition(
-              opacity: _animationController.drive(
-                Tween<double>(begin: 0.0, end: 1.0),
-              ),
+              opacity: _animationController,
               child: RefreshIndicator(
                 color: ZaytounaColors.primary,
-                onRefresh: () async {
-                  _cachedMetrics = null;
-                  await _fetchMetrics();
-                  setState(() => _recentOrdersFuture = _fetchRecentOrders());
-                },
-                child: CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics(),
-                  ),
-                  slivers: [
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(hPad.w, 12.h, hPad.w, 0),
-                      sliver: SliverToBoxAdapter(
-                        child: _buildProHeader(isPhone: isPhone),
-                      ),
+                onRefresh: _onRefresh,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: Responsive.maxContentWidth,
                     ),
-                    SliverPadding(
-                      padding: EdgeInsets.fromLTRB(hPad.w, 16.h, hPad.w, 32.h),
-                      sliver: SliverList(
-                        delegate: SliverChildListDelegate([
-                          _buildQuickLaunch(isPhone: isPhone),
-                          SizedBox(height: 12.h),
-                          _buildBookFacilityCTA(isPhone: isPhone),
-                          SizedBox(height: isPhone ? 24.h : 32.h),
-                          _buildMetrics(maxWidth: w),
-                          SizedBox(height: isPhone ? 28.h : 40.h),
-                          Text(
-                            'Venue Management',
-                            style: ZaytounaTypography.heading(
-                              fontSize: isPhone ? 20 : 24,
-                            ),
+                    child: CustomScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
+                      ),
+                      slivers: [
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(hPad.w, 12.h, hPad.w, 0),
+                          sliver: SliverToBoxAdapter(
+                            child: _buildHeader(isPhone: isPhone),
                           ),
-                          SizedBox(height: 20.h),
-                          _buildMenuGrid(context, maxWidth: w),
-                          SizedBox(height: isPhone ? 28.h : 40.h),
-                          _buildRecentActivity(isPhone: isPhone),
-                        ]),
-                      ),
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            hPad.w,
+                            Insets.lg,
+                            hPad.w,
+                            Insets.xxl,
+                          ),
+                          sliver: SliverList(
+                            delegate: SliverChildListDelegate([
+                              _buildQuickLaunch(isPhone: isPhone),
+                              SizedBox(height: Insets.md),
+                              _buildBookFacilityCta(isPhone: isPhone),
+                              SizedBox(height: isPhone ? 24.h : 32.h),
+                              _buildMetrics(maxWidth: w),
+                              SizedBox(height: isPhone ? 28.h : 40.h),
+                              _SectionTitle(
+                                'Venue Management',
+                                fontSize: isPhone ? 20 : 24,
+                              ),
+                              SizedBox(height: 20.h),
+                              _buildMenuGrid(maxWidth: w),
+                              SizedBox(height: isPhone ? 28.h : 40.h),
+                              _buildRecentActivity(isPhone: isPhone),
+                            ]),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -505,18 +642,24 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   }
 
   // ─── HEADER ────────────────────────────────────────────────────────────
-  Widget _buildProHeader({required bool isPhone}) {
+  Widget _buildHeader({required bool isPhone}) {
     final user = RouteGuard.user;
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: isPhone ? 4 : 8, vertical: 8),
+    final logoSize = isPhone ? 44.0 : 54.0;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isPhone ? Insets.xs : Insets.sm,
+        vertical: Insets.sm,
+      ),
       child: Row(
         children: [
           Container(
-            height: isPhone ? 44 : 54,
-            width: isPhone ? 44 : 54,
+            height: logoSize,
+            width: logoSize,
+            padding: EdgeInsets.all(isPhone ? 6 : 8),
             decoration: BoxDecoration(
               color: ZaytounaColors.surface,
-              borderRadius: BorderRadius.circular(16.r),
+              borderRadius: BorderRadius.circular(Corners.md),
               border: Border.all(
                 color: ZaytounaColors.primary.withValues(alpha: 0.15),
                 width: 1.5,
@@ -529,25 +672,24 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
                 ),
               ],
             ),
-            padding: EdgeInsets.all(isPhone ? 6 : 8),
             child: Image.asset(
               'assets/logo/logo.png',
               fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => Icon(
+              errorBuilder: (_, _, _) => Icon(
                 Icons.storefront_rounded,
                 color: ZaytounaColors.primary,
-                size: (isPhone ? 22 : 28).sp,
+                size: Responsive.clampSp(isPhone ? 22 : 28),
               ),
             ),
           ),
-          SizedBox(width: isPhone ? 10.w : 16.w),
+          SizedBox(width: isPhone ? Insets.sm : Insets.lg),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  user?.fullName.isNotEmpty == true
+                  (user?.fullName.isNotEmpty ?? false)
                       ? user!.fullName
                       : 'Zaytouna Staff',
                   style: ZaytounaTypography.heading(
@@ -572,18 +714,18 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
             color: Colors.transparent,
             child: InkWell(
               onTap: _handleLogout,
-              borderRadius: BorderRadius.circular(14.r),
+              borderRadius: BorderRadius.circular(Corners.md),
               child: Container(
                 padding: EdgeInsets.all(isPhone ? 9 : 12),
                 decoration: BoxDecoration(
                   color: ZaytounaColors.surfaceLight,
-                  borderRadius: BorderRadius.circular(14.r),
+                  borderRadius: BorderRadius.circular(Corners.md),
                   border: Border.all(color: ZaytounaColors.border, width: 1),
                 ),
                 child: Icon(
                   Icons.logout_rounded,
                   color: ZaytounaColors.textSecondary,
-                  size: (isPhone ? 18 : 20).sp,
+                  size: Responsive.clampSp(isPhone ? 18 : 20),
                 ),
               ),
             ),
@@ -595,252 +737,105 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
 
   // ─── QUICK LAUNCH: POS TERMINAL ────────────────────────────────────────
   Widget _buildQuickLaunch({required bool isPhone}) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: widget.onLaunchTerminal,
-        borderRadius: BorderRadius.circular(24.r),
-        child: Container(
-          padding: EdgeInsets.all(isPhone ? 18.w : 24.w),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                ZaytounaColors.primary.withValues(alpha: 0.12),
-                ZaytounaColors.primary.withValues(alpha: 0.02),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(24.r),
-            border: Border.all(
-              color: ZaytounaColors.primary.withValues(alpha: 0.2),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Ready to Serve',
-                      style: ZaytounaTypography.caption(
-                        color: ZaytounaColors.primaryDark,
-                        weight: FontWeight.w700,
-                        fontSize: isPhone ? 11 : 13,
-                      ),
-                    ),
-                    SizedBox(height: 8.h),
-                    Text(
-                      'Point of Sale Terminal',
-                      style: ZaytounaTypography.heading(
-                        fontSize: isPhone ? 17 : 22,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(height: 4.h),
-                    Text(
-                      'Process F&B orders and checkouts',
-                      style: ZaytounaTypography.body(
-                        fontSize: isPhone ? 12 : 14,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Container(
-                padding: EdgeInsets.all(isPhone ? 14.w : 18.w),
-                decoration: BoxDecoration(
-                  color: ZaytounaColors.primary,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: ZaytounaColors.primary.withValues(alpha: 0.3),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.point_of_sale_rounded,
-                  color: Colors.white,
-                  size: (isPhone ? 24 : 32).sp,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return _CtaCard(
+      onTap: _launchTerminal,
+      baseColor: ZaytounaColors.primary,
+      iconBg: ZaytounaColors.primary,
+      icon: Icons.point_of_sale_rounded,
+      eyebrow: 'Ready to Serve',
+      title: 'Point of Sale Terminal',
+      subtitle: 'Process F&B orders and checkouts',
+      isPhone: isPhone,
+      large: true,
     );
   }
 
   // ─── BOOK A FACILITY CTA ───────────────────────────────────────────────
-  Widget _buildBookFacilityCTA({required bool isPhone}) {
-    const purple = Color(0xFF8B5CF6);
-    const purpleDark = Color(0xFF6D28D9);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          context.push(Routes.bookFacility);
-        },
-        borderRadius: BorderRadius.circular(20.r),
-        child: Container(
-          padding: EdgeInsets.all(isPhone ? 16.w : 20.w),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                purple.withValues(alpha: 0.10),
-                purpleDark.withValues(alpha: 0.02),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(color: purple.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(isPhone ? 12.w : 14.w),
-                decoration: BoxDecoration(
-                  color: purple,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: purple.withValues(alpha: 0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  Icons.event_available_rounded,
-                  color: Colors.white,
-                  size: (isPhone ? 22 : 26).sp,
-                ),
-              ),
-              SizedBox(width: 14.w),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Book a Facility',
-                      style: ZaytounaTypography.subheading(
-                        fontSize: isPhone ? 15 : 18,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(height: 2.h),
-                    Text(
-                      'Reserve padel, courts, cabins & more',
-                      style: ZaytounaTypography.body(
-                        fontSize: isPhone ? 12 : 13,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                Icons.arrow_forward_rounded,
-                color: purple,
-                size: (isPhone ? 18 : 22).sp,
-              ),
-            ],
-          ),
-        ),
+  Widget _buildBookFacilityCta({required bool isPhone}) {
+    return _CtaCard(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        context.push(Routes.bookFacility);
+      },
+      baseColor: ZaytounaColors.purple,
+      iconBg: ZaytounaColors.purple,
+      icon: Icons.event_available_rounded,
+      title: 'Book a Facility',
+      subtitle: 'Reserve padel, courts, cabins & more',
+      trailing: Icon(
+        Icons.arrow_forward_rounded,
+        color: ZaytounaColors.purple,
+        size: Responsive.clampSp(isPhone ? 18 : 22),
       ),
+      isPhone: isPhone,
     );
   }
 
   // ─── METRICS ───────────────────────────────────────────────────────────
   Widget _buildMetrics({required double maxWidth}) {
-    final isPhone = _Bp.isPhone(maxWidth);
+    final isPhone = Responsive.isPhone(maxWidth);
+    final header = _SectionTitle(
+      "Today's Overview",
+      fontSize: isPhone ? 16 : 18,
+      subheading: true,
+    );
+
     if (_cachedMetrics == null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Today's Overview",
-            style: ZaytounaTypography.subheading(fontSize: isPhone ? 16 : 18),
-          ),
-          SizedBox(height: 16.h),
+          header,
+          SizedBox(height: Insets.lg),
           const Center(child: CircularProgressIndicator(strokeWidth: 2)),
         ],
       );
     }
 
-    final metrics = _cachedMetrics!;
-    int crossAxisCount;
-    double childAspectRatio;
-    if (maxWidth < 380) {
-      crossAxisCount = 1;
-      childAspectRatio = 2.8;
-    } else if (maxWidth < 600) {
-      crossAxisCount = 2;
-      childAspectRatio = 1.35;
-    } else if (maxWidth < 1100) {
-      crossAxisCount = 2;
-      childAspectRatio = 1.8;
-    } else {
-      crossAxisCount = 4;
-      childAspectRatio = 1.4;
-    }
+    final m = _cachedMetrics!;
+    final (crossAxisCount, childAspectRatio) = switch (maxWidth) {
+      < 380 => (1, 2.8),
+      < 600 => (2, 1.35),
+      < 1100 => (2, 1.8),
+      _ => (4, 1.4),
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Today's Overview",
-          style: ZaytounaTypography.subheading(fontSize: isPhone ? 16 : 18),
-        ),
-        SizedBox(height: 16.h),
+        header,
+        SizedBox(height: Insets.lg),
         GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 12.w,
-          mainAxisSpacing: 12.h,
-          childAspectRatio: childAspectRatio,
+          crossAxisSpacing: Insets.md,
+          mainAxisSpacing: Insets.md,
+          childAspectRatio: childAspectRatio.toDouble(),
           children: [
             _MetricCard(
               title: 'Total Orders',
-              value: metrics.totalOrders.toString(),
+              value: m.totalOrders.toString(),
               unit: 'orders',
               icon: Icons.receipt_long_rounded,
               color: ZaytounaColors.success,
             ),
             _MetricCard(
               title: 'Revenue',
-              value:
-                  '${Money.symbol}${metrics.totalRevenue.toStringAsFixed(2)}',
+              value: Money.format(m.totalRevenue),
               unit: Money.code,
               icon: Icons.attach_money_rounded,
               color: ZaytounaColors.primary,
             ),
             _MetricCard(
               title: 'Avg Order',
-              value:
-                  '${Money.symbol}${metrics.averageOrderValue.toStringAsFixed(2)}',
+              value: Money.format(m.averageOrderValue),
               unit: 'per order',
               icon: Icons.analytics_rounded,
               color: ZaytounaColors.info,
             ),
             _MetricCard(
               title: 'Items Sold',
-              value: metrics.itemsSold.toString(),
+              value: m.itemsSold.toString(),
               unit: 'items',
               icon: Icons.fastfood_rounded,
               color: ZaytounaColors.warning,
@@ -852,111 +847,96 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
   }
 
   // ─── MENU GRID ─────────────────────────────────────────────────────────
-  Widget _buildMenuGrid(BuildContext context, {required double maxWidth}) {
+  Widget _buildMenuGrid({required double maxWidth}) {
     const allMenuTiles = <MenuTileData>[
       MenuTileData(
         title: 'Menu',
         icon: Icons.restaurant_menu_rounded,
-        iconColor: Colors.white,
         bgColor: ZaytounaColors.warning,
         route: Routes.menu,
       ),
       MenuTileData(
         title: 'Floor Plan',
         icon: Icons.table_restaurant_rounded,
-        iconColor: Colors.white,
         bgColor: ZaytounaColors.primaryDark,
         route: Routes.tables,
       ),
       MenuTileData(
         title: 'Manage Tables',
         icon: Icons.edit_note_rounded,
-        iconColor: Colors.white,
-        bgColor: Color(0xFF10B981),
+        bgColor: ZaytounaColors.success,
         route: Routes.manageTables,
       ),
       MenuTileData(
         title: 'Inventory',
         icon: Icons.inventory_2_rounded,
-        iconColor: Colors.white,
-        bgColor: Color(0xFF3B82F6),
+        bgColor: ZaytounaColors.info,
         route: Routes.inventory,
       ),
       MenuTileData(
         title: 'Expenses',
         icon: Icons.account_balance_wallet_rounded,
-        iconColor: Colors.white,
         bgColor: ZaytounaColors.danger,
         route: Routes.expenses,
       ),
       MenuTileData(
         title: 'Book Facility',
         icon: Icons.event_available_rounded,
-        iconColor: Colors.white,
-        bgColor: Color(0xFF8B5CF6),
+        bgColor: ZaytounaColors.purple,
         route: Routes.bookFacility,
       ),
       MenuTileData(
         title: 'Manage Facilities',
         icon: Icons.apartment_rounded,
-        iconColor: Colors.white,
-        bgColor: Color(0xFF6366F1),
+        bgColor: ZaytounaColors.indigo,
         route: Routes.facilities,
       ),
       MenuTileData(
         title: 'Sales',
         icon: Icons.attach_money_rounded,
-        iconColor: Colors.white,
         bgColor: ZaytounaColors.success,
         route: Routes.sales,
       ),
       MenuTileData(
         title: 'Orders',
         icon: Icons.list_rounded,
-        iconColor: Colors.white,
         bgColor: ZaytounaColors.primaryDark,
         route: Routes.orders,
       ),
       MenuTileData(
         title: 'Customers',
         icon: Icons.people_rounded,
-        iconColor: Colors.white,
         bgColor: ZaytounaColors.success,
         route: Routes.customers,
       ),
       MenuTileData(
         title: 'Categories',
         icon: Icons.category_rounded,
-        iconColor: Colors.white,
-        bgColor: Color(0xFF8B5CF6),
+        bgColor: ZaytounaColors.purple,
         route: Routes.categories,
       ),
       MenuTileData(
         title: 'Suppliers',
         icon: Icons.local_shipping_rounded,
-        iconColor: Colors.white,
-        bgColor: Color(0xFF6366F1),
+        bgColor: ZaytounaColors.indigo,
         route: Routes.suppliers,
       ),
       MenuTileData(
         title: 'Analytics',
         icon: Icons.insights_rounded,
-        iconColor: Colors.white,
         bgColor: ZaytounaColors.primary,
         route: Routes.reports,
       ),
       MenuTileData(
         title: 'Bookings List',
         icon: Icons.event_note_rounded,
-        iconColor: Colors.white,
-        bgColor: Color(0xFF14B8A6),
+        bgColor: ZaytounaColors.teal,
         route: Routes.facilityBookings,
       ),
       MenuTileData(
         title: 'Settings',
         icon: Icons.settings_rounded,
-        iconColor: Colors.white,
-        bgColor: Color(0xFF6C757D),
+        bgColor: ZaytounaColors.textSecondary,
         route: Routes.settings,
       ),
     ];
@@ -966,77 +946,263 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
       return p == null || RouteGuard.hasPermission(p);
     }).toList();
 
-    int crossAxisCount;
-    if (maxWidth < 380) {
-      crossAxisCount = 2;
-    } else if (maxWidth < 600) {
-      crossAxisCount = 3;
-    } else if (maxWidth < 900) {
-      crossAxisCount = 4;
-    } else if (maxWidth < 1300) {
-      crossAxisCount = 5;
-    } else {
-      crossAxisCount = 6;
-    }
+    final crossAxisCount = switch (maxWidth) {
+      < 380 => 2,
+      < 600 => 3,
+      < 900 => 4,
+      < 1300 => 5,
+      _ => 6,
+    };
 
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        crossAxisSpacing: 12.w,
-        mainAxisSpacing: 12.h,
+        crossAxisSpacing: Insets.md,
+        mainAxisSpacing: Insets.md,
         childAspectRatio: 1.0,
       ),
       itemCount: allowedTiles.length,
-      itemBuilder: (_, i) => _buildMenuTile(allowedTiles[i], maxWidth),
+      itemBuilder: (_, i) => _MenuTile(
+        data: allowedTiles[i],
+        isPhone: Responsive.isPhone(maxWidth),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          context.push(allowedTiles[i].route);
+        },
+      ),
     );
   }
 
-  Widget _buildMenuTile(MenuTileData data, double maxWidth) {
-    final isPhone = _Bp.isPhone(maxWidth);
+  // ─── RECENT ACTIVITY ───────────────────────────────────────────────────
+  Widget _buildRecentActivity({required bool isPhone}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _SectionTitle(
+              'Recent Orders',
+              fontSize: isPhone ? 16 : 18,
+              subheading: true,
+            ),
+            TextButton(
+              onPressed: () => context.push(Routes.orders),
+              child: Text(
+                'View All',
+                style: ZaytounaTypography.body(
+                  weight: FontWeight.w600,
+                  color: ZaytounaColors.primary,
+                  fontSize: isPhone ? 13 : 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: Insets.sm),
+        FutureBuilder<List<dynamic>>(
+          future: _recentOrdersFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(24),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            }
+            if (snapshot.hasError) {
+              return const _EmptyState(
+                icon: Icons.error_outline_rounded,
+                message: 'Could not load recent orders',
+              );
+            }
+            final orders = snapshot.data ?? const [];
+            if (orders.isEmpty) {
+              return const _EmptyState(
+                icon: Icons.receipt_long_rounded,
+                message: 'No recent orders found',
+              );
+            }
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: orders.length,
+              separatorBuilder: (_, _) => SizedBox(height: Insets.sm),
+              itemBuilder: (_, index) => _OrderTile(order: orders[index]),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+// ─── REUSABLE WIDGETS ──────────────────────────────────────────────────
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  final double fontSize;
+  final bool subheading;
+  const _SectionTitle(
+    this.text, {
+    required this.fontSize,
+    this.subheading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: subheading
+          ? ZaytounaTypography.subheading(fontSize: fontSize)
+          : ZaytounaTypography.heading(fontSize: fontSize),
+    );
+  }
+}
+
+class _CtaCard extends StatelessWidget {
+  final VoidCallback onTap;
+  final Color baseColor;
+  final Color iconBg;
+  final IconData icon;
+  final String? eyebrow;
+  final String title;
+  final String subtitle;
+  final Widget? trailing;
+  final bool isPhone;
+  final bool large;
+
+  const _CtaCard({
+    required this.onTap,
+    required this.baseColor,
+    required this.iconBg,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isPhone,
+    this.eyebrow,
+    this.trailing,
+    this.large = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final iconCircle = Container(
+      padding: EdgeInsets.all(isPhone ? 14.w : 18.w),
+      decoration: BoxDecoration(
+        color: iconBg,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: iconBg.withValues(alpha: 0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Icon(
+        icon,
+        color: Colors.white,
+        size: Responsive.clampSp(isPhone ? 22 : (large ? 32 : 26)),
+      ),
+    );
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          context.push(data.route);
-        },
-        borderRadius: BorderRadius.circular(20.r),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Corners.xl),
         child: Container(
-          decoration: BoxDecoration(
-            color: ZaytounaColors.bgSecondary,
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(
-              color: ZaytounaColors.border.withValues(alpha: 0.8),
-              width: 1,
-            ),
+          padding: EdgeInsets.all(isPhone ? 18.w : 24.w),
+          decoration: Decorations.gradientCta(baseColor),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (eyebrow != null) ...[
+                      Text(
+                        eyebrow!,
+                        style: ZaytounaTypography.caption(
+                          color: ZaytounaColors.primaryDark,
+                          weight: FontWeight.w700,
+                          fontSize: isPhone ? 11 : 13,
+                        ),
+                      ),
+                      SizedBox(height: Insets.sm),
+                    ],
+                    Text(
+                      title,
+                      style: large
+                          ? ZaytounaTypography.heading(
+                              fontSize: isPhone ? 17 : 22,
+                            )
+                          : ZaytounaTypography.subheading(
+                              fontSize: isPhone ? 15 : 18,
+                            ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: Insets.xs),
+                    Text(
+                      subtitle,
+                      style: ZaytounaTypography.body(
+                        fontSize: isPhone ? 12 : 14,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: Insets.md),
+              trailing ?? iconCircle,
+            ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuTile extends StatelessWidget {
+  final MenuTileData data;
+  final bool isPhone;
+  final VoidCallback onTap;
+  const _MenuTile({
+    required this.data,
+    required this.isPhone,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Corners.lg),
+        child: Container(
+          decoration: Decorations.card(),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
                 padding: EdgeInsets.all(isPhone ? 10.w : 14.w),
-                decoration: BoxDecoration(
-                  color: data.bgColor,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: data.bgColor.withValues(alpha: 0.25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
+                decoration: Decorations.circleIcon(data.bgColor),
                 child: Icon(
                   data.icon,
-                  color: data.iconColor,
-                  size: (isPhone ? 20 : 24).sp,
+                  color: Colors.white,
+                  size: Responsive.clampSp(isPhone ? 20 : 24),
                 ),
               ),
               SizedBox(height: 10.h),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.w),
+                padding: EdgeInsets.symmetric(horizontal: Insets.sm),
                 child: Text(
                   data.title,
                   style: ZaytounaTypography.body(
@@ -1055,136 +1221,8 @@ class _PremiumCashierHomeState extends State<PremiumCashierHome>
       ),
     );
   }
-
-  // ─── RECENT ACTIVITY ───────────────────────────────────────────────────
-  Widget _buildRecentActivity({required bool isPhone}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Recent Orders',
-              style: ZaytounaTypography.subheading(fontSize: isPhone ? 16 : 18),
-            ),
-            TextButton(
-              onPressed: () => context.push(Routes.orders),
-              child: Text(
-                'View All',
-                style: ZaytounaTypography.body(
-                  weight: FontWeight.w600,
-                  color: ZaytounaColors.primary,
-                  fontSize: isPhone ? 13 : 14,
-                ),
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 8.h),
-        FutureBuilder<List<dynamic>>(
-          future: _recentOrdersFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(strokeWidth: 2),
-              );
-            }
-            if (snapshot.hasError ||
-                !snapshot.hasData ||
-                snapshot.data!.isEmpty) {
-              return Container(
-                padding: EdgeInsets.all(24.w),
-                decoration: BoxDecoration(
-                  color: ZaytounaColors.bgSecondary,
-                  borderRadius: BorderRadius.circular(16.r),
-                ),
-                child: Center(
-                  child: Text(
-                    'No recent orders found',
-                    style: ZaytounaTypography.body(),
-                  ),
-                ),
-              );
-            }
-
-            final orders = snapshot.data!;
-            return ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: orders.length,
-              separatorBuilder: (_, _) => SizedBox(height: 8.h),
-              itemBuilder: (context, index) {
-                final order = orders[index];
-                final status = (order['order_status'] as String? ?? 'pending')
-                    .toUpperCase();
-
-                return Container(
-                  padding: EdgeInsets.all(14.w),
-                  decoration: BoxDecoration(
-                    color: ZaytounaColors.bgSecondary,
-                    borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(color: ZaytounaColors.border, width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(10.w),
-                        decoration: BoxDecoration(
-                          color: ZaytounaColors.surface,
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        child: Icon(
-                          Icons.receipt_rounded,
-                          color: ZaytounaColors.textSecondary,
-                          size: 20.sp,
-                        ),
-                      ),
-                      SizedBox(width: 14.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Order #${order['id']}',
-                              style: ZaytounaTypography.body(
-                                weight: FontWeight.w600,
-                                color: ZaytounaColors.textPrimary,
-                              ),
-                            ),
-                            SizedBox(height: 2.h),
-                            Text(
-                              status,
-                              style: ZaytounaTypography.caption(
-                                weight: FontWeight.w700,
-                                color: status == 'COMPLETED'
-                                    ? ZaytounaColors.success
-                                    : ZaytounaColors.warning,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        '${Money.symbol}${(order['total_amount'] as num? ?? 0).toStringAsFixed(2)}',
-                        style: ZaytounaTypography.body(
-                          weight: FontWeight.w700,
-                          color: ZaytounaColors.textPrimary,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
-        ),
-      ],
-    );
-  }
 }
 
-// ─── METRIC CARD WIDGET ──────────────────────────────────────────────────
 class _MetricCard extends StatelessWidget {
   final String title;
   final String value;
@@ -1204,20 +1242,12 @@ class _MetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.all(14.w),
-      decoration: BoxDecoration(
-        color: ZaytounaColors.bgSecondary,
-        borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(
-          color: ZaytounaColors.border.withValues(alpha: 0.7),
-          width: 1,
-        ),
-      ),
+      decoration: Decorations.card(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Text(
@@ -1230,7 +1260,7 @@ class _MetricCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Icon(icon, color: color, size: 20.sp),
+              Icon(icon, color: color, size: Responsive.clampSp(20)),
             ],
           ),
           Column(
@@ -1254,6 +1284,97 @@ class _MetricCard extends StatelessWidget {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderTile extends StatelessWidget {
+  final dynamic order;
+  const _OrderTile({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = (order['order_status'] as String? ?? 'pending')
+        .toUpperCase();
+    final isDone = status == 'COMPLETED';
+
+    return Container(
+      padding: EdgeInsets.all(14.w),
+      decoration: Decorations.card(radius: Corners.md),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(10.w),
+            decoration: BoxDecoration(
+              color: ZaytounaColors.surface,
+              borderRadius: BorderRadius.circular(Corners.sm),
+            ),
+            child: Icon(
+              Icons.receipt_rounded,
+              color: ZaytounaColors.textSecondary,
+              size: Responsive.clampSp(20),
+            ),
+          ),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Order #${order['id']}',
+                  style: ZaytounaTypography.body(
+                    weight: FontWeight.w600,
+                    color: ZaytounaColors.textPrimary,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  status,
+                  style: ZaytounaTypography.caption(
+                    weight: FontWeight.w700,
+                    color: isDone
+                        ? ZaytounaColors.success
+                        : ZaytounaColors.warning,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            Money.format(order['total_amount'] as num?),
+            style: ZaytounaTypography.body(
+              weight: FontWeight.w700,
+              color: ZaytounaColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  const _EmptyState({required this.icon, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(Insets.xl),
+      decoration: Decorations.card(radius: Corners.md),
+      child: Column(
+        children: [
+          Icon(
+            icon,
+            color: ZaytounaColors.textTertiary,
+            size: Responsive.clampSp(28),
+          ),
+          SizedBox(height: Insets.sm),
+          Text(message, style: ZaytounaTypography.body()),
         ],
       ),
     );

@@ -1,205 +1,246 @@
-// lib/Core/Routers/routes.dart
+// ignore_for_file: constant_identifier_names
+
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
-import 'package:zaytouna_park/Core/Routers/route_guard.dart';
 
-// ─── AUTH IMPORTS ────────────────────────────────────────────────────────────
-
-import 'package:zaytouna_park/Features/Auth/pages/Login/staff_login_page.dart';
-
-// ─── ADMIN IMPORTS ───────────────────────────────────────────────────────────
-import 'package:zaytouna_park/Features/admin/admin_shell/admin_shell.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Categories/categories.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Facilities/facilities.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Inventory/inventory.dart';
-import 'package:zaytouna_park/Features/admin/Widgets/Suppliers/suppliers.dart';
-
-// ─── CASHIER IMPORTS ─────────────────────────────────────────────────────────
-import 'package:zaytouna_park/Features/cashier/Shell/appshell.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Terminal/terminalscreen.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Orders/orders.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Customers/customers.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Tables/tables.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Tables/manage_tables_page.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Facilities/facilities_booking_page.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Facilities/facility_bookings_list_page.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Sales/sales.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Expenses/expenses.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Analytics/analatics.dart';
-import 'package:zaytouna_park/Features/cashier/Widgets/Settings/settings.dart';
-
-// ─── KITCHEN & MENU IMPORTS ──────────────────────────────────────────────────
-import 'package:zaytouna_park/Features/kitchen/home_kitchen.dart';
-import 'package:zaytouna_park/Features/kitchen/widgets/menu%20mangement/menumanagementscreen.dart';
-
-// ─── ROUTE PATHS ─────────────────────────────────────────────────────────────
 class Routes {
   Routes._();
 
+  // AUTHENTICATION
   static const String login = '/login';
   static const String forgotPassword = '/forgot-password';
+
+  // ROLE DASHBOARDS
   static const String adminDashboard = '/admin-dashboard';
   static const String cashierDashboard = '/cashier-dashboard';
-  static const String shell = '/shell';
   static const String kitchenDashboard = '/kitchen-dashboard';
 
-  // Cashier / shared pages (pushed on top of shell)
+  // MAIN NAVIGATION
+  static const String shell = '/shell';
+  static const String home = '/home';
   static const String pos = '/pos';
-  static const String orders = '/orders';
-  static const String customers = '/customers';
+
+  // SPORTS & FACILITIES
+  static const String bookings = '/bookings';
+  static const String playground = '/playground';
   static const String tables = '/tables';
   static const String manageTables = '/manage-tables';
-  static const String bookings = '/bookings';
+  static const String facilities = '/facilities';
   static const String bookFacility = '/book-facility';
   static const String facilityBookings = '/facility-bookings';
-  static const String sales = '/sales';
-  static const String salesReport = '/sales-report';
-  static const String expenses = '/expenses';
+
+  // INVENTORY & MENU
   static const String inventory = '/inventory';
-  static const String menu = '/menu';
   static const String categories = '/categories';
   static const String suppliers = '/suppliers';
+  static const String menu = '/menu';
+
+  // SALES & ORDERS
+  static const String orders = '/orders';
+  static const String sales = '/sales';
   static const String reports = '/reports';
-  static const String facilities = '/facilities';
+  static const String salesReport = '/sales-report';
+
+  // FINANCE & CUSTOMERS
+  static const String customers = '/customers';
+  static const String expenses = '/expenses';
+
+  // SETTINGS
   static const String settings = '/settings';
   static const String profile = '/profile';
-  static const String playground = '/playground';
-  static const String notFound = '/404';
+
+  // ERROR
+  static const String notFound = '/not-found';
+
+  // ─── HELPERS ──────────────────────────────────────────────────────
+  static bool isAuthRoute(String route) =>
+      route == login || route == forgotPassword;
+
+  static String getDisplayName(String route) {
+    const names = <String, String>{
+      adminDashboard: 'Admin Dashboard',
+      cashierDashboard: 'Cashier Dashboard',
+      kitchenDashboard: 'Kitchen Dashboard',
+      home: 'Dashboard',
+      pos: 'Point of Sale',
+      bookings: 'Sports Bookings',
+      facilityBookings: 'Facility Bookings',
+      playground: 'Playground',
+      tables: 'Restaurant Tables',
+      manageTables: 'Manage Tables',
+      inventory: 'Inventory',
+      orders: 'Order History',
+      customers: 'Customer Loyalty',
+      expenses: 'Expenses & Bills',
+      settings: 'Settings',
+      menu: 'Menu Management',
+      facilities: 'Facilities',
+      bookFacility: 'Book a Facility',
+      sales: 'Sales',
+      reports: 'Reports',
+      salesReport: 'Sales Report',
+      profile: 'Staff Profile',
+    };
+    return names[route] ?? 'Zaytouna Park';
+  }
+
+  static IconData getIcon(String route) {
+    const icons = <String, IconData>{
+      adminDashboard: Icons.admin_panel_settings,
+      cashierDashboard: Icons.point_of_sale,
+      kitchenDashboard: Icons.kitchen,
+      home: Icons.dashboard_rounded,
+      pos: Icons.point_of_sale_rounded,
+      bookings: Icons.sports_tennis_rounded,
+      playground: Icons.child_friendly_rounded,
+      tables: Icons.table_restaurant_rounded,
+      manageTables: Icons.table_restaurant_rounded,
+      inventory: Icons.inventory_rounded,
+      orders: Icons.receipt_long_rounded,
+      customers: Icons.people_rounded,
+      expenses: Icons.monetization_on_rounded,
+      settings: Icons.settings_rounded,
+      menu: Icons.restaurant_menu_rounded,
+      facilities: Icons.apartment_rounded,
+      bookFacility: Icons.event_available_rounded,
+      facilityBookings: Icons.event_note_rounded,
+      sales: Icons.attach_money_rounded,
+      reports: Icons.bar_chart_rounded,
+      salesReport: Icons.bar_chart_rounded,
+      profile: Icons.person_pin_rounded,
+    };
+    return icons[route] ?? Icons.circle_outlined;
+  }
+
+  static const List<String> mainNavigation = <String>[
+    home,
+    pos,
+    bookFacility,
+    bookings,
+    playground,
+    tables,
+    inventory,
+    manageTables,
+    orders,
+    customers,
+    expenses,
+    settings,
+  ];
 }
 
-// ─── PERMISSIONS ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// APP PERMISSIONS
+// ─────────────────────────────────────────────────────────────────────
 class AppPermissions {
   AppPermissions._();
 
+  // POS
   static const String useTerminal = 'use_terminal';
-  static const String createBookings = 'create_bookings';
-  static const String viewKitchen = 'view_kitchen_display';
-  static const String markReady = 'mark_items_ready';
-  static const String manageStaff = 'manage_staff';
-  static const String viewReports = 'view_reports';
-  static const String manageSettings = 'manage_settings';
-  static const String manageFacilities = 'manage_facilities';
-  static const String refillMatte = 'refill_matte';
+  static const String voidOrders = 'void_orders';
 
-  /// Returns the required permission for a route, or null if open to all.
+  // Sports & Facilities
+  static const String createBookings = 'create_bookings';
+  static const String manageBookings = 'manage_bookings';
+  static const String manageFacilities = 'manage_facilities';
+
+  // F&B
+  static const String refillMatte = 'refill_matte';
+  static const String manageTables = 'manage_tables';
+
+  // Kitchen
+  static const String viewKitchenDisplay = 'view_kitchen_display';
+  static const String markItemsReady = 'mark_items_ready';
+
+  // Back Office (admin-only)
+  static const String viewReports = 'view_reports';
+  static const String manageInventory = 'manage_inventory';
+  static const String manageExpenses = 'manage_expenses';
+  static const String manageStaff = 'manage_staff';
+
+  /// Role → permissions map.
+  /// Admins bypass all checks (handled in RouteGuard).
+  static const Map<String, List<String>> rolePermissions = {
+    'admin': [
+      useTerminal,
+      voidOrders,
+      createBookings,
+      manageBookings,
+      manageFacilities,
+      refillMatte,
+      manageTables,
+      viewKitchenDisplay,
+      markItemsReady,
+      viewReports,
+      manageInventory,
+      manageExpenses,
+      manageStaff,
+    ],
+    'cashier': [
+      useTerminal,
+      createBookings,
+      refillMatte,
+      // ── Newly granted to cashiers ──
+      // (sales, expenses, inventory, menu now open to cashiers)
+    ],
+    'kitchen': [viewKitchenDisplay, markItemsReady],
+  };
+
+  /// Returns the permission required to access a given route.
+  /// Returns null if any authenticated user may access it.
   static String? requiredFor(String route) {
     switch (route) {
-      // These are open to cashier via useTerminal
+      // ── POS & core cashier screens ─────────────────────────────
       case Routes.pos:
+        return useTerminal;
+
       case Routes.orders:
       case Routes.customers:
       case Routes.tables:
-      case Routes.manageTables:
-      case Routes.sales:
-      case Routes.expenses:
-      case Routes.inventory:
-      case Routes.menu:
         return useTerminal;
 
+      // ── NOW OPEN TO CASHIERS (useTerminal) ─────────────────────
+      case Routes.sales:
+      case Routes.salesReport:
+        return useTerminal; // was: viewReports
+
+      case Routes.expenses:
+        return useTerminal; // was: manageExpenses
+
+      case Routes.inventory:
+      case Routes.categories:
+      case Routes.suppliers:
+        return useTerminal; // was: manageInventory
+
+      case Routes.menu:
+        return useTerminal; // was: manageInventory
+
+      // ── Facilities ─────────────────────────────────────────────
+      case Routes.bookings:
+      case Routes.playground:
       case Routes.bookFacility:
       case Routes.facilityBookings:
         return createBookings;
 
-      case Routes.reports:
-        return viewReports;
-
       case Routes.facilities:
-      case Routes.categories:
-      case Routes.suppliers:
         return manageFacilities;
 
-      case Routes.settings:
-        return manageSettings;
+      // ── Restaurant ─────────────────────────────────────────────
+      case Routes.manageTables:
+        return manageTables;
 
+      // ── Admin-only ─────────────────────────────────────────────
+      case Routes.reports: // full analytics dashboard
+        return viewReports;
+
+      case Routes.settings:
+        return manageStaff;
+
+      case Routes.kitchenDashboard:
+        return viewKitchenDisplay;
+
+      // ── Open to any authenticated user ─────────────────────────
+      // home, profile, shell
       default:
         return null;
     }
   }
 }
-
-// ─── ROUTER ──────────────────────────────────────────────────────────────────
-final appRouter = GoRouter(
-  initialLocation: Routes.login,
-  redirect: (context, state) {
-    final loggedIn = RouteGuard.user != null;
-    final isLogin = state.matchedLocation == Routes.login;
-    if (!loggedIn && !isLogin) return Routes.login;
-    return null;
-  },
-  routes: [
-    // Auth Pages
-    GoRoute(path: Routes.login, builder: (_, _) => const LoginScreen()),
-
-    // Core Role Shells
-    GoRoute(
-      path: Routes.adminDashboard,
-      builder: (_, _) => const AdminShellScreen(),
-    ),
-    GoRoute(
-      path: Routes.cashierDashboard,
-      builder: (_, _) => const CashierShellScreen(),
-    ),
-    GoRoute(
-      path: Routes.kitchenDashboard,
-      builder: (_, _) => const KitchenScreen(),
-    ),
-
-    // ─── VALIDATED SUB-ROUTES FROM DIRECTORY TREE ────────────────────────────
-    GoRoute(path: Routes.pos, builder: (_, _) => const UpgradedPOS()),
-    GoRoute(
-      path: Routes.bookFacility,
-      builder: (_, _) => const FacilitiesBookingPage(),
-    ),
-    GoRoute(
-      path: Routes.facilityBookings,
-      builder: (_, _) => const FacilityBookingsListPage(),
-    ),
-    GoRoute(path: Routes.orders, builder: (_, _) => const OrdersScreen()),
-    GoRoute(path: Routes.menu, builder: (_, _) => const MenuManagementScreen()),
-    GoRoute(path: Routes.tables, builder: (_, _) => const TablesPage()),
-    GoRoute(
-      path: Routes.manageTables,
-      builder: (_, _) => const ManageTablesPage(),
-    ),
-    GoRoute(path: Routes.inventory, builder: (_, _) => const InventoryScreen()),
-    GoRoute(path: Routes.expenses, builder: (_, _) => const ExpensesScreen()),
-    GoRoute(
-      path: Routes.facilities,
-      builder: (_, _) => const FacilitiesScreen(),
-    ),
-    GoRoute(path: Routes.sales, builder: (_, _) => const SalesScreen()),
-    GoRoute(path: Routes.customers, builder: (_, _) => const CustomersScreen()),
-    GoRoute(path: Routes.categories, builder: (_, _) => const CategoryScreen()),
-    GoRoute(path: Routes.suppliers, builder: (_, _) => const SuppliersScreen()),
-    GoRoute(path: Routes.reports, builder: (_, _) => const AnalyticsScreen()),
-    GoRoute(path: Routes.settings, builder: (_, _) => const SettingsScreen()),
-  ],
-
-  errorBuilder: (context, state) => Scaffold(
-    backgroundColor: const Color(0xFFFFF5F0),
-    body: Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            size: 56,
-            color: Color(0xFFEF4444),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            state.error.toString(),
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFF6B7280)),
-          ),
-          const SizedBox(height: 24),
-          OutlinedButton(
-            onPressed: () => context.go(Routes.login),
-            child: const Text('Go to Login'),
-          ),
-        ],
-      ),
-    ),
-  ),
-);
